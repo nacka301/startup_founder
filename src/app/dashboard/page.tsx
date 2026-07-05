@@ -14,6 +14,18 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // First login lands here (via /auth/callback); if onboarding isn't done yet,
+  // send the user to fill out their profile before seeing the dashboard.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("onboarding_completed_at")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.onboarding_completed_at) {
+    redirect("/onboarding");
+  }
+
   async function signOut() {
     "use server";
     const supabase = await createClient();
