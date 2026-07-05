@@ -1,0 +1,6 @@
+# Supabase — local/linked state, never commit
+.branches
+.temp
+
+# Supabase env
+.env
