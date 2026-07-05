@@ -15,6 +15,17 @@ import {
 
 type Status = "idle" | "loading" | "sent" | "error";
 
+// Fixed copy for error codes handed back by /auth/callback. We never render the
+// raw query param, so the URL can't be used to inject arbitrary on-page text.
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_link:
+    "That magic link is invalid or has expired. Please request a new one.",
+};
+
+function messageForErrorCode(code: string): string {
+  return ERROR_MESSAGES[code] ?? "Something went wrong. Please try again.";
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -22,8 +33,8 @@ export default function LoginPage() {
 
   // Surface errors handed back by the /auth/callback route (e.g. expired link).
   useEffect(() => {
-    const err = new URLSearchParams(window.location.search).get("error");
-    if (err) setError(err);
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) setError(messageForErrorCode(code));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,9 +86,20 @@ export default function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "login-error" : undefined}
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && (
+                <p
+                  id="login-error"
+                  role="alert"
+                  aria-live="polite"
+                  className="text-sm text-destructive"
+                >
+                  {error}
+                </p>
+              )}
               <Button type="submit" disabled={status === "loading"}>
                 {status === "loading" ? "Sending…" : "Send magic link"}
               </Button>

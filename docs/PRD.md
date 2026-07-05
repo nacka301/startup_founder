@@ -73,6 +73,7 @@ Working title **IdeaVerdict**. Candidates to check on Namecheap (availability no
 - **Reddit access:** live search via web search + Reddit JSON endpoints (no official OAuth API in v1). Rate-limit politely; fallback to general web search if blocked.
 - **Overpromising:** verdicts must include uncertainty language; disclaimer that this is research assistance, not guaranteed business advice.
 - **Streaming leaks:** API keys/.env never on screen (secrets manager + scene switch).
+- **RLS regression coverage:** privilege/billing columns (`role`, `plan`, `free_credit_used`) are protected by column-level grants, verified manually for now. Add an automated RLS regression test (normal user must not write those columns) once the product is working — manual verification is enough for MVP.
 
 ## 12. Build-in-public notes
 
