@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev:login": "node --env-file=.env.local scripts/dev-login-link.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

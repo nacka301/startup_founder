@@ -248,6 +248,16 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Magic-link sign-in email: includes both the link and a 6-digit OTP code so
+# users can still sign in when a scanner rewrites/breaks the link (see
+# src/app/login for the code-entry fallback). Template file lives at
+# supabase/templates/magic_link.html. Requires a custom SMTP provider (Resend,
+# configured below / in the dashboard) — the free-tier default email provider
+# rejects template customization.
+[auth.email.template.magic_link]
+subject = "Your IdeaVerdict sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
