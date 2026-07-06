@@ -1,8 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import type { runAnalysis } from "@/trigger/run-analysis";
 
 type Answer = { id: string; answer: string };
 type SubmitResult = { error: string };
@@ -86,15 +88,43 @@ export async function submitAnswers(
     }
   }
 
-  // Guard on status = 'clarifying' so a double-submit can't re-queue.
-  const { error: statusError } = await service
+  // Guard on status = 'clarifying' so a double-submit can't re-queue. Selecting
+  // the affected row confirms *this* call performed the transition (0 rows means
+  // a concurrent submit already queued it) — so we don't enqueue the job twice.
+  const { data: queued, error: statusError } = await service
     .from("analyses")
     .update({ status: "queued" })
     .eq("id", analysisId)
-    .eq("status", "clarifying");
+    .eq("status", "clarifying")
+    .select("id");
 
-  if (statusError) {
+  if (statusError || !queued || queued.length === 0) {
     return { error: "Couldn't submit your analysis. Please try again." };
+  }
+
+  // Enqueue the evidence-gathering job (Stage B). The task itself moves the
+  // status queued → running. Store the run id for the mini admin / debugging.
+  try {
+    const handle = await tasks.trigger<typeof runAnalysis>("run-analysis", {
+      analysisId,
+    });
+    await service
+      .from("analyses")
+      .update({ trigger_run_id: handle.id })
+      .eq("id", analysisId);
+  } catch (e) {
+    console.error(
+      "Failed to enqueue analysis job:",
+      e instanceof Error ? e.message : e,
+    );
+    // Roll back to 'clarifying' so the user can resubmit — their answers stay
+    // saved, and the guarded status update keeps this safe against a race.
+    await service
+      .from("analyses")
+      .update({ status: "clarifying" })
+      .eq("id", analysisId)
+      .eq("status", "queued");
+    return { error: "We couldn't start your analysis. Please try again." };
   }
 
   redirect(`/analyses/${analysisId}`);
