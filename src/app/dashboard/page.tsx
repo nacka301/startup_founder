@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { STATUS_META, type AnalysisStatus } from "@/lib/analyses";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -26,6 +29,12 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
+  const { data: analyses } = await supabase
+    .from("analyses")
+    .select("id, idea_text, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
   async function signOut() {
     "use server";
     const supabase = await createClient();
@@ -33,8 +42,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const list = analyses ?? [];
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1100px] flex-col gap-6 px-6 py-16">
+    <main className="mx-auto flex min-h-screen max-w-[1100px] flex-col gap-8 px-6 py-16">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
         <form action={signOut}>
@@ -43,11 +54,45 @@ export default async function DashboardPage() {
           </Button>
         </form>
       </div>
-      <p className="text-muted-foreground">
-        You&apos;re signed in as{" "}
-        <span className="font-medium text-foreground">{user.email}</span>. This is a
-        placeholder — your analyses will appear here.
-      </p>
+
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold tracking-tight">Your analyses</h2>
+        <Link href="/analyses/new" className={buttonVariants()}>
+          New analysis
+        </Link>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card px-6 py-10 text-center">
+          <p className="text-muted-foreground">
+            No analyses yet. Start with your first idea — you&apos;ll get an
+            evidence-backed verdict.
+          </p>
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {list.map((analysis) => {
+            const meta = STATUS_META[analysis.status as AnalysisStatus];
+            return (
+              <li key={analysis.id}>
+                <Link
+                  href={`/analyses/${analysis.id}`}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="line-clamp-2 text-sm text-foreground">
+                    {analysis.idea_text}
+                  </span>
+                  {meta && (
+                    <Badge variant={meta.badge} className="shrink-0">
+                      {meta.label}
+                    </Badge>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </main>
   );
 }
