@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_META, type AnalysisStatus } from "@/lib/analyses";
 import { ClarifyForm, type ClarifyQuestion } from "./clarify-form";
+import { DiscardButton } from "./discard-button";
 
 const WRAPPER =
   "mx-auto flex min-h-screen max-w-[720px] flex-col gap-8 px-6 py-16";
@@ -45,6 +46,30 @@ export default async function AnalysisPage({
       .eq("analysis_id", id)
       .order("position");
 
+    const list = (questions ?? []) as ClarifyQuestion[];
+
+    // Fail closed: a 'clarifying' row with no questions means setup didn't
+    // finish (e.g. the server action was killed mid-generation). Don't render a
+    // dead form — let the user discard it so their one active slot frees up.
+    if (list.length === 0) {
+      return (
+        <main className={WRAPPER}>
+          <div className="flex flex-col items-start gap-4">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-3xl font-semibold tracking-tight">
+                This one didn&apos;t finish setting up
+              </h1>
+              <p className="text-muted-foreground">
+                We couldn&apos;t prepare the questions for this analysis. Discard
+                it and start over — it only takes a moment.
+              </p>
+            </div>
+            <DiscardButton analysisId={id} label="Start over" />
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className={WRAPPER}>
         <header className="flex flex-col gap-2">
@@ -56,10 +81,8 @@ export default async function AnalysisPage({
             there are no wrong answers.
           </p>
         </header>
-        <ClarifyForm
-          analysisId={id}
-          questions={(questions ?? []) as ClarifyQuestion[]}
-        />
+        <ClarifyForm analysisId={id} questions={list} />
+        <DiscardButton analysisId={id} />
       </main>
     );
   }

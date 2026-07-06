@@ -50,17 +50,24 @@ export async function submitAnswers(
   }
 
   // Validate: exactly one answer per question, each ∈ that question's options.
+  // Count + membership + no-duplicates together guarantee full unique coverage
+  // (N distinct valid question ids out of N questions ⇒ every question answered).
   const optionsById = new Map(
     questions.map((q) => [q.id as string, (q.options as string[]) ?? []]),
   );
   if (answers.length !== questions.length) {
     return { error: "Please answer every question." };
   }
+  const seen = new Set<string>();
   for (const a of answers) {
     const options = optionsById.get(a.id);
     if (!options) {
       return { error: "Something went wrong. Please try again." };
     }
+    if (seen.has(a.id)) {
+      return { error: "Please answer every question." };
+    }
+    seen.add(a.id);
     if (!options.includes(a.answer)) {
       return { error: "Please choose one of the suggested answers." };
     }
@@ -91,4 +98,51 @@ export async function submitAnswers(
   }
 
   redirect(`/analyses/${analysisId}`);
+}
+
+/**
+ * Discard an in-progress analysis so the user can start over. Ownership is
+ * enforced by loading the row through the user's RLS-scoped session before the
+ * service-role delete. Only a 'clarifying' analysis may be discarded — once it's
+ * 'queued' (or later) the analysis job owns its lifecycle. Deleting the row frees
+ * the user's single active slot and cascades to its questions; llm_costs rows
+ * survive (analysis_id set null). Redirects to the new-analysis page on success.
+ */
+export async function cancelAnalysis(analysisId: string): Promise<SubmitResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Your session expired. Please sign in again." };
+  }
+
+  // RLS scopes this to the owner; a non-owner (or missing id) gets null.
+  const { data: analysis } = await supabase
+    .from("analyses")
+    .select("id, status")
+    .eq("id", analysisId)
+    .maybeSingle();
+
+  if (!analysis) {
+    return { error: "We couldn't find that analysis." };
+  }
+  if (analysis.status !== "clarifying") {
+    return { error: "This analysis is already running and can't be discarded." };
+  }
+
+  // Guard on status = 'clarifying' so a concurrent submit can't have it deleted
+  // out from under a running job.
+  const service = createServiceClient();
+  const { error } = await service
+    .from("analyses")
+    .delete()
+    .eq("id", analysisId)
+    .eq("status", "clarifying");
+
+  if (error) {
+    return { error: "Couldn't discard this analysis. Please try again." };
+  }
+
+  redirect("/analyses/new");
 }
