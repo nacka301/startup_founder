@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,10 @@ import type { runAnalysis } from "@/trigger/run-analysis";
 
 type Answer = { id: string; answer: string };
 type SubmitResult = { error: string };
+
+export type ShareResult =
+  | { error: string }
+  | { ok: true; shareEnabled: boolean; shareToken: string | null };
 
 /**
  * Step 2 → 3: store the 5 answers and move the analysis to 'queued', then
@@ -199,4 +204,61 @@ export async function cancelAnalysis(analysisId: string): Promise<SubmitResult> 
   }
 
   redirect("/analyses/new");
+}
+
+/**
+ * Opt-in public sharing (PRD §5.7). Enabling flips `share_enabled` and mints a
+ * `share_token` (once, reused on re-enable) so `/r/[token]` can render the report
+ * without auth; disabling flips it back (the token is kept but the route ignores
+ * a disabled share). Ownership is enforced via the user's RLS-scoped session
+ * before any service-role write, and only a finished analysis (done /
+ * insufficient_evidence) can be shared. Never touches role/plan/credit columns.
+ */
+export async function setShareEnabled(
+  analysisId: string,
+  enabled: boolean,
+): Promise<ShareResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Your session expired. Please sign in again." };
+  }
+
+  // RLS scopes this to the owner; a non-owner (or missing id) gets null.
+  const { data: analysis } = await supabase
+    .from("analyses")
+    .select("id, status, share_enabled, share_token")
+    .eq("id", analysisId)
+    .maybeSingle();
+
+  if (!analysis) {
+    return { error: "We couldn't find that analysis." };
+  }
+  if (
+    analysis.status !== "done" &&
+    analysis.status !== "insufficient_evidence"
+  ) {
+    return { error: "You can only share a finished analysis." };
+  }
+
+  const currentToken = (analysis.share_token as string | null) ?? null;
+  const nextToken =
+    enabled && !currentToken ? crypto.randomUUID() : currentToken;
+
+  // Scope the write to the owner as defense-in-depth on top of the RLS read.
+  const service = createServiceClient();
+  const { error } = await service
+    .from("analyses")
+    .update({ share_enabled: enabled, share_token: nextToken })
+    .eq("id", analysisId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: "Couldn't update sharing. Please try again." };
+  }
+
+  revalidatePath(`/analyses/${analysisId}`);
+  return { ok: true, shareEnabled: enabled, shareToken: nextToken };
 }

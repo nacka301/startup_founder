@@ -37,7 +37,7 @@ const stubServerOnly = esbuildPlugin({
 
 /**
  * Trigger.dev configuration. Tasks live in `src/trigger/`. The analysis job can
- * run several minutes (LLM calls + polite ≤1 req/sec Reddit fetching), so the
+ * run several minutes (LLM calls + Tavily search fetches), so the
  * per-run ceiling is generous. Retries are disabled in local dev so a forced
  * failure surfaces immediately instead of looping; in deployed environments the
  * per-task `retry` config (initial + 2) applies.

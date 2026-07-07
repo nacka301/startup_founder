@@ -82,6 +82,6 @@ waitlist (
 ## Notes
 
 - **Credits:** free = `free_credit_used` flag; paid = count `analyses` with `consumed_credit=true` in current month < 10. One `status IN ('clarifying','queued','running')` analysis per user at a time (partial unique index).
-- **Public share route** reads via `share_token` with a security-definer function (no auth), returns report minus `plan`.
+- **Public share route** reads via `share_token` (+ `share_enabled=true`) using the service-role client in the `/r/[token]` server component (no auth); the query never selects `plan`, so the paid plan is absent from the shared payload.
 - **Billing (week 4):** add `subscriptions` table fed by Lemon Squeezy webhooks (`ls_subscription_id`, status, renews_at); `profiles.plan` becomes derived. Manual toggle remains for admin.
 - Migrations via Supabase CLI, checked into repo.

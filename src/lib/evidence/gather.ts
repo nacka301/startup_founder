@@ -2,7 +2,6 @@ import "server-only";
 import type { createServiceClient } from "@/lib/supabase/service";
 import { MAX_CANDIDATES, type Candidate, type EvidenceRow } from "./config";
 import { tavilySearch } from "./tavily";
-import { redditSearch } from "./reddit";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -67,7 +66,7 @@ export async function writeRawPayload(
 
 /**
  * Gather up to MAX_CANDIDATES candidate items for an analysis across the planned
- * queries, from Tavily (Reddit + forums) and direct Reddit search, deduped by
+ * queries, from Tavily (which searches Reddit + the forum allowlist), deduped by
  * normalized URL.
  *
  * `cached` is the checkpoint already read by the caller this attempt: if it has
@@ -98,14 +97,10 @@ export async function gatherCandidates(
 
   for (const query of queries) {
     if (byUrl.size >= MAX_CANDIDATES) break;
-    // Tavily (Reddit + forums) and direct Reddit search per query. Reddit is
-    // rate-limited internally; a block just yields [] and we keep Tavily results.
-    const [tavily, reddit] = await Promise.all([
-      tavilySearch(query),
-      redditSearch(query),
-    ]);
-    add(tavily);
-    add(reddit);
+    // Tavily searches Reddit (via include_domains) + the forum allowlist. We do
+    // NOT call reddit.com/search.json directly: it 403s from datacenter IPs, and
+    // Tavily already surfaces Reddit content richly (ARCHITECTURE.md §5 fallback).
+    add(await tavilySearch(query));
   }
 
   const candidates = [...byUrl.values()];

@@ -97,3 +97,20 @@
     @apply font-sans;
   }
 }
+
+/* ScoreRing fill animation (src/components/report/score-ring.tsx). Animates the
+   colored stroke from empty to the score on load; --ring-* are set inline. */
+@keyframes score-ring {
+  from {
+    stroke-dashoffset: var(--ring-circumference);
+  }
+  to {
+    stroke-dashoffset: var(--ring-offset);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[score-ring_1s_ease-out_forwards\] {
+    animation: none !important;
+  }
+}

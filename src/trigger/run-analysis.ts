@@ -1,6 +1,8 @@
 import { logger, task } from "@trigger.dev/sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callClaudeJson } from "@/lib/anthropic/json";
+import { sendReportReadyEmail } from "@/lib/email/send-report-ready";
 import * as queriesPrompt from "@/prompts/search-queries.v1";
 import * as extractPrompt from "@/prompts/evidence-extraction.v1";
 import * as verdictPrompt from "@/prompts/verdict.v1";
@@ -70,6 +72,67 @@ function buildInsufficientReason(facts: {
     "This usually means the idea is phrased too broadly, targets a very niche audience, or the pain isn't discussed much in public yet.",
     "Try naming the specific person who has the problem, describing their exact frustration in their own words, or narrowing to one concrete use case — then run it again. Your free analysis hasn't been used.",
   ].join(" ");
+}
+
+/**
+ * Best-effort "report ready" email (Stage E). Resolves the recipient via the
+ * service-role admin API (email lives on auth.users, not profiles) and sends
+ * through Resend. NEVER throws — email is a side-effect that must not fail or
+ * retry the run, so every failure is logged and swallowed and the job still
+ * completes with its status.
+ */
+async function notifyReportReady(
+  service: SupabaseClient,
+  userId: string,
+  params:
+    | {
+        status: "done";
+        analysisId: string;
+        score: number;
+        verdict: "go" | "caution" | "stop";
+        summary: string;
+      }
+    | { status: "insufficient_evidence"; analysisId: string; summary: string },
+): Promise<void> {
+  try {
+    const { data, error } = await service.auth.admin.getUserById(userId);
+    const email = data?.user?.email;
+    if (error || !email) {
+      logger.error("Report-ready email skipped: no recipient email", { userId });
+      return;
+    }
+
+    const result = await sendReportReadyEmail(
+      params.status === "done"
+        ? {
+            to: email,
+            analysisId: params.analysisId,
+            status: "done",
+            score: params.score,
+            verdict: params.verdict,
+            summary: params.summary,
+          }
+        : {
+            to: email,
+            analysisId: params.analysisId,
+            status: "insufficient_evidence",
+            summary: params.summary,
+          },
+    );
+
+    if (!result.ok) {
+      logger.error("Report-ready email failed to send", { error: result.error });
+      return;
+    }
+    logger.info("Report-ready email sent", {
+      emailId: result.id,
+      status: params.status,
+    });
+  } catch (e) {
+    logger.error("Report-ready email threw", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 /**
@@ -155,7 +218,7 @@ export const runAnalysis = task({
       logger.info("Planned search queries", { count: queries.length });
     }
 
-    // 4. Gather candidates (Tavily + Reddit), cached for retries.
+    // 4. Gather candidates (Tavily — Reddit + forums), cached for retries.
     const candidates = await gatherCandidates(
       service,
       analysisId,
@@ -282,6 +345,15 @@ export const runAnalysis = task({
       logger.info("Insufficient evidence; report written", {
         relevant: deduped.length,
       });
+
+      // Stage E — notify the user (best-effort; never fails the run).
+      await notifyReportReady(service, analysis.user_id, {
+        status: "insufficient_evidence",
+        analysisId,
+        summary:
+          "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
+      });
+
       return { status: "insufficient_evidence", evidenceCount: deduped.length } as const;
     }
 
@@ -390,6 +462,17 @@ export const runAnalysis = task({
       .in("status", ["queued", "running"]);
 
     logger.info("Analysis done", { score: verdict.score, verdict: verdict.verdict });
+
+    // Stage E — notify the user their verdict is ready (best-effort; a failed
+    // send is logged and swallowed so the run still completes 'done').
+    await notifyReportReady(service, analysis.user_id, {
+      status: "done",
+      analysisId,
+      score: verdict.score,
+      verdict: verdict.verdict,
+      summary: verdict.summary,
+    });
+
     return { status: "done", score: verdict.score } as const;
   },
 

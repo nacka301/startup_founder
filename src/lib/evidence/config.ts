@@ -18,14 +18,7 @@ export const EXTRACT_BATCH_SIZE = 20;
 /** Max characters of each candidate's text passed to extraction (keeps token cost bounded). */
 export const CANDIDATE_TEXT_LIMIT = 1200;
 
-/** Reddit requires a descriptive, non-generic User-Agent or it rate-limits/blocks. */
-export const REDDIT_USER_AGENT =
-  "IdeaVerdict/0.1 (evidence research; +https://ideaverdict.com)";
-
-/** Minimum gap between Reddit requests — politeness (≤1 req/sec). */
-export const REDDIT_MIN_INTERVAL_MS = 1100;
-
-/** Abort a Tavily/Reddit search fetch after this long, so a hung upstream can't stall the run to maxDuration. */
+/** Abort a Tavily search fetch after this long, so a hung upstream can't stall the run to maxDuration. */
 export const SEARCH_FETCH_TIMEOUT_MS = 15_000;
 
 /**
