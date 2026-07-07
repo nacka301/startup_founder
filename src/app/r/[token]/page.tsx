@@ -64,7 +64,7 @@ function Banner() {
   return (
     <div className="border-b border-border bg-muted/40">
       <div className="mx-auto flex max-w-[720px] items-center justify-between gap-4 px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight">IdeaVerdict</span>
+        <span className="text-sm font-semibold tracking-tight">BuildWorthy</span>
         <Link
           href="/"
           className={buttonVariants({ variant: "outline", size: "sm" })}

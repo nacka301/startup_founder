@@ -105,7 +105,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#FAFAF9] p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Sign in to IdeaVerdict</CardTitle>
+          <CardTitle>Sign in to BuildWorthy</CardTitle>
           <CardDescription>
             {sendStatus === "sent"
               ? "We sent you a sign-in link and a 6-digit code."

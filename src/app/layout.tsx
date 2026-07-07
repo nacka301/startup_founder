@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "IdeaVerdict",
+  title: "BuildWorthy",
   description: "An honest, evidence-backed verdict on your business idea.",
 };
 
