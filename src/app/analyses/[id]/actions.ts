@@ -104,21 +104,40 @@ export async function submitAnswers(
 
   // Enqueue the evidence-gathering job (Stage B). The task itself moves the
   // status queued → running. Store the run id for the mini admin / debugging.
-  try {
-    const handle = await tasks.trigger<typeof runAnalysis>("run-analysis", {
-      analysisId,
-    });
-    await service
-      .from("analyses")
-      .update({ trigger_run_id: handle.id })
-      .eq("id", analysisId);
-  } catch (e) {
+  //
+  // The idempotency key is stable per analysis, so a retry after a timed-out
+  // (but actually registered) trigger call resolves to the same run instead of
+  // starting a second one — this is what makes it safe to retry a few times
+  // in-process before giving up and rolling back.
+  const ENQUEUE_ATTEMPTS = 3;
+  let handle: Awaited<ReturnType<typeof tasks.trigger<typeof runAnalysis>>> | null =
+    null;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < ENQUEUE_ATTEMPTS; attempt++) {
+    try {
+      handle = await tasks.trigger<typeof runAnalysis>(
+        "run-analysis",
+        { analysisId },
+        { idempotencyKey: analysisId, idempotencyKeyTTL: "1h" },
+      );
+      break;
+    } catch (e) {
+      lastError = e;
+      if (attempt < ENQUEUE_ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+      }
+    }
+  }
+
+  if (!handle) {
     console.error(
       "Failed to enqueue analysis job:",
-      e instanceof Error ? e.message : e,
+      lastError instanceof Error ? lastError.message : lastError,
     );
     // Roll back to 'clarifying' so the user can resubmit — their answers stay
     // saved, and the guarded status update keeps this safe against a race.
+    // Every attempt above threw, so nothing was registered with Trigger.dev
+    // under this idempotency key — there's no run to strand.
     await service
       .from("analyses")
       .update({ status: "clarifying" })
@@ -126,6 +145,11 @@ export async function submitAnswers(
       .eq("status", "queued");
     return { error: "We couldn't start your analysis. Please try again." };
   }
+
+  await service
+    .from("analyses")
+    .update({ trigger_run_id: handle.id })
+    .eq("id", analysisId);
 
   redirect(`/analyses/${analysisId}`);
 }
