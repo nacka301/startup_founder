@@ -41,6 +41,16 @@ export const FORUM_DOMAINS = [
 /** Domains passed to Tavily's include_domains: Reddit plus the forum allowlist. */
 export const SEARCH_INCLUDE_DOMAINS = ["reddit.com", ...FORUM_DOMAINS];
 
+/** True for a well-formed http(s) URL — guards against malformed permalinks reaching users as links. */
+export function isHttpUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * A normalized candidate item from any source, before extraction. This is the
  * shape cached in `analysis_raw_evidence.payload` and fed to Haiku.

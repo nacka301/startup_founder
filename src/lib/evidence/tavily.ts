@@ -2,6 +2,7 @@ import "server-only";
 import {
   CANDIDATE_TEXT_LIMIT,
   SEARCH_INCLUDE_DOMAINS,
+  isHttpUrl,
   type Candidate,
 } from "./config";
 
@@ -72,6 +73,7 @@ export async function tavilySearch(
 
   return (data.results ?? [])
     .filter((r): r is TavilyResult & { url: string } => typeof r.url === "string")
+    .filter((r) => isHttpUrl(r.url))
     .map((r) => ({
       source: sourceForUrl(r.url),
       url: r.url,

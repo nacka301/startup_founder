@@ -3,6 +3,7 @@ import {
   CANDIDATE_TEXT_LIMIT,
   REDDIT_MIN_INTERVAL_MS,
   REDDIT_USER_AGENT,
+  isHttpUrl,
   type Candidate,
 } from "./config";
 
@@ -70,7 +71,7 @@ export async function redditSearch(
   return (listing.data?.children ?? [])
     .map((c) => c.data)
     .filter((d): d is NonNullable<RedditChild["data"]> & { permalink: string } =>
-      typeof d?.permalink === "string",
+      typeof d?.permalink === "string" && d.permalink.startsWith("/"),
     )
     .map((d) => ({
       source: "reddit" as const,
@@ -78,5 +79,6 @@ export async function redditSearch(
       title: (d.title ?? "").slice(0, 300),
       content: (d.selftext ?? "").slice(0, CANDIDATE_TEXT_LIMIT),
       authorHandle: d.author ?? null,
-    }));
+    }))
+    .filter((c) => isHttpUrl(c.url));
 }

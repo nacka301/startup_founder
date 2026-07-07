@@ -52,6 +52,17 @@ function normalizeQuote(quote: string): string {
   return quote.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * True only if `quote` actually appears in `sourceText` (the exact, already-
+ * truncated text the model saw). Guards against an injected or hallucinated
+ * quote reaching evidence_items and rendering as a "real" complaint.
+ */
+function quoteInSource(quote: string, sourceText: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const q = norm(quote).replace(/^[…"'\s]+|[…"'\s]+$/g, "");
+  return q.length >= 12 && norm(sourceText).includes(q);
+}
+
 /** Honest, deterministic "not enough evidence" message (why + what to try). */
 function buildInsufficientReason(facts: {
   queries: number;
@@ -165,6 +176,7 @@ export const runAnalysis = task({
         if (!item.relevant) continue;
         if (item.index < 0 || item.index >= batch.length) continue;
         if (!item.quote || !item.severity || !item.topic) continue;
+        if (!quoteInSource(item.quote, batchInput[item.index].text)) continue;
         const cand = batch[item.index];
         extracted.push({
           analysis_id: analysisId,
