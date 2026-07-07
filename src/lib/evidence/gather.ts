@@ -12,6 +12,10 @@ type ServiceClient = ReturnType<typeof createServiceClient>;
  * search results:
  * - `queries`/`candidates` are written once, after the first successful gather.
  * - `extracted`/`batchesDone` are updated after each extraction batch.
+ *
+ * Note: the scoring stages (verdict/plan) are deliberately NOT cached here — each
+ * attempt wipes and rebuilds `evidence_items` with fresh IDs, so a cached verdict
+ * would reference deleted evidence rows. They are regenerated per attempt instead.
  */
 export type RawPayload = {
   queries?: string[];

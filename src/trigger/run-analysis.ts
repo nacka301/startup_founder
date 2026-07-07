@@ -3,6 +3,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { callClaudeJson } from "@/lib/anthropic/json";
 import * as queriesPrompt from "@/prompts/search-queries.v1";
 import * as extractPrompt from "@/prompts/evidence-extraction.v1";
+import * as verdictPrompt from "@/prompts/verdict.v1";
+import * as planPrompt from "@/prompts/realization-plan.v1";
+import type { ProfileInput } from "@/lib/profile-format";
 import {
   gatherCandidates,
   readRawPayload,
@@ -98,7 +101,7 @@ export const runAnalysis = task({
     // 1. Load the analysis and move queued → running (idempotent on retry).
     const { data: analysis } = await service
       .from("analyses")
-      .select("id, idea_text, status")
+      .select("id, user_id, idea_text, status")
       .eq("id", analysisId)
       .maybeSingle();
 
@@ -226,13 +229,27 @@ export const runAnalysis = task({
     );
 
     // Clean slate + rebuild, done once per attempt from the fully accumulated
-    // (possibly resumed) extraction — never partial.
+    // (possibly resumed) extraction — never partial. Select back the persisted
+    // rows so Stage C can cite their real evidence_items IDs.
     await service.from("evidence_items").delete().eq("analysis_id", analysisId);
+    let persistedEvidence: {
+      id: string;
+      source: string;
+      url: string;
+      quote: string;
+      severity: number;
+      topic: string;
+      similar_count: number;
+    }[] = [];
     if (deduped.length > 0) {
-      const { error } = await service.from("evidence_items").insert(deduped);
+      const { data: inserted, error } = await service
+        .from("evidence_items")
+        .insert(deduped)
+        .select("id, source, url, quote, severity, topic, similar_count");
       if (error) {
         throw new Error(`Failed to insert evidence_items: ${error.message}`);
       }
+      persistedEvidence = inserted ?? [];
     }
     logger.info("Extracted evidence", { relevant: deduped.length });
 
@@ -268,13 +285,112 @@ export const runAnalysis = task({
       return { status: "insufficient_evidence", evidenceCount: deduped.length } as const;
     }
 
-    // 7. Sufficient — leave status 'running' for the scoring stage.
-    // TODO(Stage C): trigger scoring/verdict here (idea + answers + profile +
-    // evidence_items) → write reports.score/criteria/solutions, then status 'done'.
-    logger.info("Evidence gathered; awaiting scoring", {
-      evidenceCount: deduped.length,
+    // 7. Sufficient — Stage C (verdict) + Stage D (plan), then finalize.
+
+    // Load the founder's profile for personal-feasibility scoring and the credit
+    // rule. (Done here so the insufficient-evidence path above is untouched.)
+    const { data: profile } = await service
+      .from("profiles")
+      .select(
+        "plan, free_credit_used, occupation, skills, weekly_hours, budget_range, work_preference",
+      )
+      .eq("id", analysis.user_id)
+      .single();
+
+    const profileForPrompt: ProfileInput = {
+      occupation: (profile?.occupation as string | null) ?? null,
+      skills: (profile?.skills as string[] | null) ?? null,
+      weekly_hours: (profile?.weekly_hours as string | null) ?? null,
+      budget_range: (profile?.budget_range as string | null) ?? null,
+      work_preference: (profile?.work_preference as string | null) ?? null,
+    };
+
+    const evidenceForPrompt = persistedEvidence.map((e) => ({
+      id: e.id,
+      source: e.source,
+      quote: e.quote,
+      severity: e.severity,
+      topic: e.topic,
+      similar_count: e.similar_count,
+      url: e.url,
+    }));
+    const validEvidenceIds = new Set(evidenceForPrompt.map((e) => e.id));
+
+    // Stage C — verdict. Regenerated on every attempt (not checkpointed): the
+    // extraction step above rebuilds evidence_items with fresh IDs each attempt,
+    // so a cached verdict would cite deleted rows. The schema is parameterized
+    // with this analysis's evidence IDs, so a hallucinated/missing reference fails
+    // validation → one corrective retry (inside callClaudeJson) → the run fails
+    // rather than storing an unsupported claim.
+    const verdict = await callClaudeJson({
+      model: verdictPrompt.VERDICT_MODEL,
+      stage: verdictPrompt.VERDICT_STAGE,
+      analysisId,
+      system: verdictPrompt.buildSystemPrompt(),
+      user: verdictPrompt.buildUserPrompt(
+        analysis.idea_text,
+        answers,
+        profileForPrompt,
+        evidenceForPrompt,
+      ),
+      schema: verdictPrompt.buildVerdictResponseSchema(validEvidenceIds),
+      maxTokens: 2500,
     });
-    return { status: "running", evidenceCount: deduped.length } as const;
+    logger.info("Scored verdict", {
+      score: verdict.score,
+      verdict: verdict.verdict,
+    });
+
+    // Stage D — realization plan (always generated; UI gates it for free users).
+    const plan = await callClaudeJson({
+      model: planPrompt.PLAN_MODEL,
+      stage: planPrompt.PLAN_STAGE,
+      analysisId,
+      system: planPrompt.buildSystemPrompt(),
+      user: planPrompt.buildUserPrompt(analysis.idea_text, answers, profileForPrompt, {
+        summary: verdict.summary,
+        mvpSketch: verdict.solutions.mvp_sketch,
+        possibleSolutions: verdict.solutions.possible_solutions,
+      }),
+      schema: planPrompt.realizationPlanResponseSchema,
+      maxTokens: 2500,
+    });
+    logger.info("Generated realization plan");
+
+    // 8. Persist the report, then consume the credit as the final commit.
+    await service.from("reports").upsert(
+      {
+        analysis_id: analysisId,
+        score: verdict.score,
+        verdict: verdict.verdict,
+        summary: verdict.summary,
+        criteria: verdict.criteria,
+        solutions: verdict.solutions,
+        plan,
+        insufficient_reason: null,
+      },
+      { onConflict: "analysis_id" },
+    );
+
+    // Consume the credit only now. free_credit_used gates a free user's next
+    // analysis, so set it for anyone not explicitly paid. consumed_credit is set
+    // for everyone (paid usage is counted from it). The guarded status flip to
+    // 'done' is the last write: until it lands the status stays 'running', so any
+    // transient failure retries cleanly and no failed run ever consumes credit.
+    if (profile?.plan !== "paid") {
+      await service
+        .from("profiles")
+        .update({ free_credit_used: true })
+        .eq("id", analysis.user_id);
+    }
+    await service
+      .from("analyses")
+      .update({ status: "done", consumed_credit: true })
+      .eq("id", analysisId)
+      .in("status", ["queued", "running"]);
+
+    logger.info("Analysis done", { score: verdict.score, verdict: verdict.verdict });
+    return { status: "done", score: verdict.score } as const;
   },
 
   // Runs only after all retries are exhausted: mark failed, credit untouched.
