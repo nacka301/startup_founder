@@ -3,26 +3,19 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { callClaudeJson } from "@/lib/anthropic/json";
 import * as queriesPrompt from "@/prompts/search-queries.v1";
 import * as extractPrompt from "@/prompts/evidence-extraction.v1";
-import { gatherCandidates } from "@/lib/evidence/gather";
+import {
+  gatherCandidates,
+  readRawPayload,
+  writeRawPayload,
+} from "@/lib/evidence/gather";
 import {
   CANDIDATE_TEXT_LIMIT,
   EXTRACT_BATCH_SIZE,
   MIN_EVIDENCE,
-  type Candidate,
+  type EvidenceRow,
 } from "@/lib/evidence/config";
 
 type RunAnalysisPayload = { analysisId: string };
-
-type EvidenceRow = {
-  analysis_id: string;
-  source: Candidate["source"];
-  url: string;
-  quote: string;
-  author_handle: string | null;
-  severity: number;
-  topic: string;
-  similar_count: number;
-};
 
 /** Merge rows sharing a key, summing their similar_count (keeps the first row). */
 function dedupeBy(
@@ -83,8 +76,11 @@ function buildInsufficientReason(facts: {
  * evidence_items, and gates on the insufficient-evidence rule. On success the
  * analysis is left 'running' for the (not-yet-built) scoring stage.
  *
- * Idempotent across retries: the raw search payload is cached per analysis, and
- * evidence_items are wiped and rebuilt each attempt.
+ * Idempotent across retries: planned queries, gathered candidates, and
+ * extracted batches are all checkpointed per analysis in
+ * `analysis_raw_evidence.payload`, so a retry resumes instead of re-spending
+ * Sonnet/Haiku calls or re-fetching search results. evidence_items are wiped
+ * and rebuilt from the accumulated extraction once per attempt.
  */
 export const runAnalysis = task({
   id: "run-analysis",
@@ -134,28 +130,53 @@ export const runAnalysis = task({
       answer: (q.answer as string | null) ?? "I don't know",
     }));
 
-    // 3. Query planning (Sonnet).
-    const { queries } = await callClaudeJson({
-      model: queriesPrompt.QUERIES_MODEL,
-      stage: queriesPrompt.QUERIES_STAGE,
-      analysisId,
-      system: queriesPrompt.buildSystemPrompt(),
-      user: queriesPrompt.buildUserPrompt(analysis.idea_text, answers),
-      schema: queriesPrompt.searchQueriesResponseSchema,
-      maxTokens: 1000,
-    });
-    logger.info("Planned search queries", { count: queries.length });
+    // 3. Query planning (Sonnet) — reuse a cached plan on retry so a retry
+    // never re-spends the Sonnet call.
+    const cachedPayload = await readRawPayload(service, analysisId);
+
+    let queries: string[];
+    if (cachedPayload?.queries && cachedPayload.queries.length > 0) {
+      queries = cachedPayload.queries;
+      logger.info("Reusing cached search queries", { count: queries.length });
+    } else {
+      const result = await callClaudeJson({
+        model: queriesPrompt.QUERIES_MODEL,
+        stage: queriesPrompt.QUERIES_STAGE,
+        analysisId,
+        system: queriesPrompt.buildSystemPrompt(),
+        user: queriesPrompt.buildUserPrompt(analysis.idea_text, answers),
+        schema: queriesPrompt.searchQueriesResponseSchema,
+        maxTokens: 1000,
+      });
+      queries = result.queries;
+      logger.info("Planned search queries", { count: queries.length });
+    }
 
     // 4. Gather candidates (Tavily + Reddit), cached for retries.
-    const candidates = await gatherCandidates(service, analysisId, queries);
+    const candidates = await gatherCandidates(
+      service,
+      analysisId,
+      queries,
+      cachedPayload,
+    );
     logger.info("Gathered candidates", { count: candidates.length });
 
-    // 5. Extract with Haiku in batches; clean slate first for idempotent re-runs.
-    await service.from("evidence_items").delete().eq("analysis_id", analysisId);
+    // 5. Extract with Haiku in batches, resuming from the last checkpointed
+    // batch on retry so already-extracted batches aren't re-spent.
+    const extracted: EvidenceRow[] = cachedPayload?.extracted
+      ? [...cachedPayload.extracted]
+      : [];
+    const startBatch = cachedPayload?.batchesDone ?? 0;
 
-    const extracted: EvidenceRow[] = [];
-    for (let i = 0; i < candidates.length; i += EXTRACT_BATCH_SIZE) {
-      const batch = candidates.slice(i, i + EXTRACT_BATCH_SIZE);
+    for (
+      let batchIndex = startBatch;
+      batchIndex * EXTRACT_BATCH_SIZE < candidates.length;
+      batchIndex++
+    ) {
+      const batch = candidates.slice(
+        batchIndex * EXTRACT_BATCH_SIZE,
+        (batchIndex + 1) * EXTRACT_BATCH_SIZE,
+      );
       const batchInput = batch.map((c, j) => ({
         index: j,
         source: c.source,
@@ -189,6 +210,13 @@ export const runAnalysis = task({
           similar_count: 1,
         });
       }
+
+      await writeRawPayload(service, analysisId, {
+        queries,
+        candidates,
+        extracted,
+        batchesDone: batchIndex + 1,
+      });
     }
 
     // Dedupe by URL, then by near-identical quote; similar_count reflects merges.
@@ -197,6 +225,9 @@ export const runAnalysis = task({
       (r) => normalizeQuote(r.quote),
     );
 
+    // Clean slate + rebuild, done once per attempt from the fully accumulated
+    // (possibly resumed) extraction — never partial.
+    await service.from("evidence_items").delete().eq("analysis_id", analysisId);
     if (deduped.length > 0) {
       const { error } = await service.from("evidence_items").insert(deduped);
       if (error) {

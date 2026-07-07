@@ -1,12 +1,24 @@
 import "server-only";
 import type { createServiceClient } from "@/lib/supabase/service";
-import { MAX_CANDIDATES, type Candidate } from "./config";
+import { MAX_CANDIDATES, type Candidate, type EvidenceRow } from "./config";
 import { tavilySearch } from "./tavily";
 import { redditSearch } from "./reddit";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
-type RawPayload = { candidates: Candidate[] };
+/**
+ * Per-analysis checkpoint cached in `analysis_raw_evidence.payload`, so a
+ * Trigger.dev retry can resume instead of re-spending LLM calls and re-fetching
+ * search results:
+ * - `queries`/`candidates` are written once, after the first successful gather.
+ * - `extracted`/`batchesDone` are updated after each extraction batch.
+ */
+export type RawPayload = {
+  queries?: string[];
+  candidates?: Candidate[];
+  extracted?: EvidenceRow[];
+  batchesDone?: number;
+};
 
 /** Normalize a URL for dedupe: drop protocol case, query, hash, and trailing slash. */
 function normalizeUrl(url: string): string {
@@ -19,35 +31,57 @@ function normalizeUrl(url: string): string {
   }
 }
 
+/** Read the cached checkpoint for an analysis, if any. */
+export async function readRawPayload(
+  service: ServiceClient,
+  analysisId: string,
+): Promise<RawPayload | null> {
+  const { data } = await service
+    .from("analysis_raw_evidence")
+    .select("payload")
+    .eq("analysis_id", analysisId)
+    .maybeSingle();
+  return (data?.payload as RawPayload) ?? null;
+}
+
+/** Persist the checkpoint. Never let a cache-write failure fail the job. */
+export async function writeRawPayload(
+  service: ServiceClient,
+  analysisId: string,
+  payload: RawPayload,
+): Promise<void> {
+  const { error } = await service
+    .from("analysis_raw_evidence")
+    .upsert(
+      { analysis_id: analysisId, payload },
+      { onConflict: "analysis_id" },
+    );
+  if (error) {
+    console.error("Failed to cache raw evidence:", error.message);
+  }
+}
+
 /**
  * Gather up to MAX_CANDIDATES candidate items for an analysis across the planned
  * queries, from Tavily (Reddit + forums) and direct Reddit search, deduped by
  * normalized URL.
  *
- * Results are cached in `analysis_raw_evidence` keyed by analysis: on a
- * Trigger.dev retry the cached payload is returned as-is, so Reddit is never
- * re-fetched and politeness limits aren't re-spent.
+ * `cached` is the checkpoint already read by the caller this attempt: if it has
+ * candidates, they're returned as-is (a retry never re-fetches). A fresh gather
+ * that comes back empty (e.g. a total search outage) is intentionally NOT
+ * cached, so the next retry re-attempts instead of reading a dead empty result.
  */
 export async function gatherCandidates(
   service: ServiceClient,
   analysisId: string,
   queries: string[],
+  cached: RawPayload | null,
 ): Promise<Candidate[]> {
-  // 1. Return the cached payload if a prior attempt already fetched.
-  const { data: cached } = await service
-    .from("analysis_raw_evidence")
-    .select("payload")
-    .eq("analysis_id", analysisId)
-    .maybeSingle();
-
-  if (cached?.payload) {
-    const payload = cached.payload as RawPayload;
-    if (Array.isArray(payload.candidates)) {
-      return payload.candidates;
-    }
+  if (cached?.candidates) {
+    return cached.candidates;
   }
 
-  // 2. Fresh gather. Dedupe by normalized URL as we go; stop at the cap.
+  // Fresh gather. Dedupe by normalized URL as we go; stop at the cap.
   const byUrl = new Map<string, Candidate>();
 
   const add = (items: Candidate[]) => {
@@ -72,16 +106,8 @@ export async function gatherCandidates(
 
   const candidates = [...byUrl.values()];
 
-  // 3. Persist the raw payload so a retry re-uses it. Never let a cache-write
-  // failure fail the job — the candidates are already in memory for this run.
-  const { error } = await service
-    .from("analysis_raw_evidence")
-    .upsert(
-      { analysis_id: analysisId, payload: { candidates } satisfies RawPayload },
-      { onConflict: "analysis_id" },
-    );
-  if (error) {
-    console.error("Failed to cache raw evidence:", error.message);
+  if (candidates.length > 0) {
+    await writeRawPayload(service, analysisId, { ...cached, queries, candidates });
   }
 
   return candidates;

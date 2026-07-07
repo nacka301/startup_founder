@@ -65,3 +65,15 @@ export type Candidate = {
   content: string;
   authorHandle: string | null;
 };
+
+/** A single extracted, relevant complaint — the row shape for `evidence_items`. */
+export type EvidenceRow = {
+  analysis_id: string;
+  source: Candidate["source"];
+  url: string;
+  quote: string;
+  author_handle: string | null;
+  severity: number;
+  topic: string;
+  similar_count: number;
+};
