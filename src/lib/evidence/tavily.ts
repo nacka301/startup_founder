@@ -1,6 +1,7 @@
 import "server-only";
 import {
   CANDIDATE_TEXT_LIMIT,
+  SEARCH_FETCH_TIMEOUT_MS,
   SEARCH_INCLUDE_DOMAINS,
   isHttpUrl,
   type Candidate,
@@ -57,6 +58,7 @@ export async function tavilySearch(
         include_domains: SEARCH_INCLUDE_DOMAINS,
         max_results: maxResults,
       }),
+      signal: AbortSignal.timeout(SEARCH_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
       console.error(`Tavily search failed (${res.status}) for query: ${query}`);

@@ -3,6 +3,7 @@ import {
   CANDIDATE_TEXT_LIMIT,
   REDDIT_MIN_INTERVAL_MS,
   REDDIT_USER_AGENT,
+  SEARCH_FETCH_TIMEOUT_MS,
   isHttpUrl,
   type Candidate,
 } from "./config";
@@ -54,6 +55,7 @@ export async function redditSearch(
   try {
     const res = await fetch(url, {
       headers: { "user-agent": REDDIT_USER_AGENT, accept: "application/json" },
+      signal: AbortSignal.timeout(SEARCH_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
       console.error(`Reddit search failed (${res.status}) for query: ${query}`);

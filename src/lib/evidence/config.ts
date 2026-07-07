@@ -25,6 +25,9 @@ export const REDDIT_USER_AGENT =
 /** Minimum gap between Reddit requests — politeness (≤1 req/sec). */
 export const REDDIT_MIN_INTERVAL_MS = 1100;
 
+/** Abort a Tavily/Reddit search fetch after this long, so a hung upstream can't stall the run to maxDuration. */
+export const SEARCH_FETCH_TIMEOUT_MS = 15_000;
+
 /**
  * Domains searched alongside reddit.com. A pragmatic default set of places where
  * people discuss problems and workarounds — tune as evidence quality is reviewed
