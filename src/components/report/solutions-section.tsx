@@ -1,4 +1,5 @@
 import type { ReportSolutions } from "@/lib/report-schema";
+import { Reveal } from "@/components/motion/reveal";
 
 /**
  * Possible solutions & MVP shape (PRD §6.4) — the free-tier teaser that precedes
@@ -6,7 +7,7 @@ import type { ReportSolutions } from "@/lib/report-schema";
  */
 export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) {
   return (
-    <section className="flex flex-col gap-4">
+    <Reveal as="section" className="flex flex-col gap-4">
       <h2 className="text-xl font-semibold tracking-tight">
         Possible solutions & MVP shape
       </h2>
@@ -36,6 +37,6 @@ export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) 
           </ul>
         </div>
       )}
-    </section>
+    </Reveal>
   );
 }

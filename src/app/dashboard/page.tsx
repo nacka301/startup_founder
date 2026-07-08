@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Reveal } from "@/components/motion/reveal";
 import { STATUS_META, type AnalysisStatus } from "@/lib/analyses";
 
 export default async function DashboardPage() {
@@ -46,7 +47,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-[1100px] flex-col gap-8 px-6 py-16">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
         <form action={signOut}>
           <Button variant="outline" type="submit">
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
         </form>
       </div>
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-tight">Your analyses</h2>
         <Link href="/analyses/new" className={buttonVariants()}>
           New analysis
@@ -71,13 +72,13 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {list.map((analysis) => {
+          {list.map((analysis, i) => {
             const meta = STATUS_META[analysis.status as AnalysisStatus];
             return (
-              <li key={analysis.id}>
+              <Reveal key={analysis.id} as="li" index={i}>
                 <Link
                   href={`/analyses/${analysis.id}`}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+                  className="card-hover flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3"
                 >
                   <span className="line-clamp-2 text-sm text-foreground">
                     {analysis.idea_text}
@@ -88,7 +89,7 @@ export default async function DashboardPage() {
                     </Badge>
                   )}
                 </Link>
-              </li>
+              </Reveal>
             );
           })}
         </ul>

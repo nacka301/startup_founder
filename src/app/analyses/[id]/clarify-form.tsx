@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioCardGroup } from "@/components/ui/radio-card";
+import { Reveal } from "@/components/motion/reveal";
 import { submitAnswers } from "./actions";
 
 export type ClarifyQuestion = {
@@ -56,11 +57,7 @@ export function ClarifyForm({
       {questions.map((q, idx) => {
         const labelId = `q-${q.id}`;
         return (
-          <section
-            key={q.id}
-            className="animate-fade-in-up flex flex-col gap-3"
-            style={{ animationDelay: `${idx * 0.1}s` }}
-          >
+          <Reveal key={q.id} as="section" index={idx} className="flex flex-col gap-3">
             <h2 id={labelId} className="text-[15px] font-semibold text-foreground">
               <span className="text-muted-foreground">{q.position}.</span>{" "}
               {q.question}
@@ -72,7 +69,7 @@ export function ClarifyForm({
               value={answers[q.id] ?? null}
               onChange={(value) => setAnswer(q.id, value)}
             />
-          </section>
+          </Reveal>
         );
       })}
 

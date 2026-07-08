@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { ACTIVE_STATUSES } from "@/lib/analyses";
+import { WizardStepper } from "@/components/wizard/stepper";
 import { NewAnalysisForm } from "./new-analysis-form";
 
 const WRAPPER =
@@ -87,6 +88,7 @@ export default async function NewAnalysisPage() {
 
   return (
     <main className={WRAPPER}>
+      <WizardStepper current={1} />
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight">
           Describe your idea

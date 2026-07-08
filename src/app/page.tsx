@@ -8,12 +8,15 @@ import {
   ListChecks,
   MessageSquare,
   PencilLine,
+  Star,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { ScoreRing } from "@/components/report/score-ring";
 import { VERDICT_DISPLAY } from "@/lib/report-schema";
 import { FREE_PLAN, PAID_PLAN } from "@/lib/pricing";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
+import { Reveal } from "@/components/motion/reveal";
+import { SegmentedMeter } from "@/components/report/segmented-meter";
 
 export const metadata: Metadata = {
   title: "BuildWorthy — an evidence-backed verdict on your business idea",
@@ -37,6 +40,32 @@ const SAMPLE_CRITERIA = [
   { label: "Competition & their weaknesses", score: 71 },
   { label: "Personal feasibility", score: 78 },
   { label: "Monetization potential", score: 68 },
+];
+
+// Illustrative only — no real users/testimonials yet. Clearly labeled below
+// as example feedback, same convention as SAMPLE_* report preview data.
+const SAMPLE_TESTIMONIALS = [
+  {
+    quote:
+      "Saved me from building something nobody wanted. The evidence was right there — real people, real complaints. Honestly a relief.",
+    name: "Jonas M.",
+    role: "Indie hacker",
+    initials: "JM",
+  },
+  {
+    quote:
+      "The verdict was blunt and I needed that. It flagged the monetization gap I'd been ignoring for weeks.",
+    name: "Amara K.",
+    role: "Freelance designer",
+    initials: "AK",
+  },
+  {
+    quote:
+      "Ran three ideas through it in a day. Two got a STOP, one got a GO — and that GO is now my side project.",
+    name: "Rui T.",
+    role: "Solo founder",
+    initials: "RT",
+  },
 ];
 
 const HOW_IT_WORKS = [
@@ -64,10 +93,10 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Hero glow background */}
+      {/* Hero glow background — subtle animated pulse behind the headline */}
       <div
         aria-hidden
-        className="pointer-events-none fixed left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-gradient-to-b from-primary/20 to-transparent blur-3xl opacity-40"
+        className="animate-glow-pulse pointer-events-none fixed left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-gradient-to-b from-primary/20 to-transparent opacity-40 blur-3xl"
       />
 
       {/* Top bar */}
@@ -136,25 +165,24 @@ export default function Home() {
               {HOW_IT_WORKS.map((step, i) => {
                 const Icon = step.icon;
                 return (
-                  <li
-                    key={step.title}
-                    className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Icon className="size-5" aria-hidden />
-                      </span>
-                      <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Step {i + 1}
-                      </span>
+                  <Reveal key={step.title} as="li" index={i}>
+                    <div className="card-hover flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-6">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <Icon className="size-5" aria-hidden />
+                        </span>
+                        <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Step {i + 1}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold tracking-tight">
+                        {step.title}
+                      </h3>
+                      <p className="text-[15px] leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
                     </div>
-                    <h3 className="text-lg font-semibold tracking-tight">
-                      {step.title}
-                    </h3>
-                    <p className="text-[15px] leading-relaxed text-muted-foreground">
-                      {step.body}
-                    </p>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ol>
@@ -173,7 +201,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mx-auto mt-12 flex max-w-[760px] flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <Reveal className="mx-auto mt-12 flex max-w-[760px] flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
             <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
               Example report
             </span>
@@ -210,15 +238,7 @@ export default function Home() {
                       <span className="text-foreground">{c.label}</span>
                       <span className="text-muted-foreground">{c.score}/100</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full"
-                        style={{
-                          width: `${c.score}%`,
-                          backgroundColor: go.color,
-                        }}
-                      />
-                    </div>
+                    <SegmentedMeter score={c.score} color={go.color} segments={20} />
                   </div>
                 ))}
               </div>
@@ -257,6 +277,50 @@ export default function Home() {
                 build first.
               </p>
             </div>
+          </Reveal>
+        </section>
+
+        {/* Sample feedback — illustrative only, no real users/testimonials yet */}
+        <section className={`${container} py-16 sm:py-24`}>
+          <Reveal className="flex flex-col items-center gap-3 text-center">
+            <div className="flex -space-x-2">
+              {SAMPLE_TESTIMONIALS.map((t) => (
+                <span
+                  key={t.initials}
+                  className="flex size-9 items-center justify-center rounded-full border-2 border-background bg-primary/20 text-[12px] font-semibold text-primary"
+                >
+                  {t.initials}
+                </span>
+              ))}
+            </div>
+            <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Sample feedback
+            </span>
+          </Reveal>
+          <div className="mt-10 grid gap-5 sm:grid-cols-3">
+            {SAMPLE_TESTIMONIALS.map((t, i) => (
+              <Reveal key={t.name} index={i}>
+                <figure className="card-hover flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-6">
+                  <div className="flex gap-0.5 text-amber-400" aria-hidden>
+                    {Array.from({ length: 5 }, (_, j) => (
+                      <Star key={j} className="size-3.5 fill-current" />
+                    ))}
+                  </div>
+                  <blockquote className="font-serif text-[15px] italic leading-relaxed text-foreground">
+                    &ldquo;{t.quote}&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-auto flex items-center gap-3 text-[13px]">
+                    <span className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+                      {t.initials}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">{t.name}</span>
+                      <span className="text-muted-foreground">{t.role}</span>
+                    </div>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
           </div>
         </section>
 
@@ -273,65 +337,69 @@ export default function Home() {
 
             <div className="mx-auto mt-12 grid max-w-[760px] gap-6 sm:grid-cols-2">
               {/* Free */}
-              <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-lg font-semibold tracking-tight">Free</h3>
-                  <p className="text-3xl font-semibold tracking-tight">$0</p>
+              <Reveal index={0} className="h-full">
+                <div className="card-hover flex h-full flex-col gap-5 rounded-xl border border-border bg-card p-6">
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-lg font-semibold tracking-tight">Free</h3>
+                    <p className="text-3xl font-semibold tracking-tight">$0</p>
+                  </div>
+                  <ul className="flex flex-col gap-2 text-[15px] text-muted-foreground">
+                    <PlanFeature>
+                      {FREE_PLAN.analyses} full analysis, with score and verdict
+                    </PlanFeature>
+                    <PlanFeature>Real evidence with sources and links</PlanFeature>
+                    <PlanFeature>Web report + email summary</PlanFeature>
+                    <PlanFeature>Realization plan locked (preview only)</PlanFeature>
+                  </ul>
+                  <Link
+                    href="/analyses/new"
+                    className={buttonVariants({ variant: "outline", className: "mt-auto" })}
+                  >
+                    Start free
+                  </Link>
                 </div>
-                <ul className="flex flex-col gap-2 text-[15px] text-muted-foreground">
-                  <PlanFeature>
-                    {FREE_PLAN.analyses} full analysis, with score and verdict
-                  </PlanFeature>
-                  <PlanFeature>Real evidence with sources and links</PlanFeature>
-                  <PlanFeature>Web report + email summary</PlanFeature>
-                  <PlanFeature>Realization plan locked (preview only)</PlanFeature>
-                </ul>
-                <Link
-                  href="/analyses/new"
-                  className={buttonVariants({ variant: "outline" })}
-                >
-                  Start free
-                </Link>
-              </div>
+              </Reveal>
 
               {/* Paid */}
-              <div className="shadow-glow flex flex-col gap-5 rounded-xl border border-primary bg-card p-6 ring-1 ring-primary">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold tracking-tight">Paid</h3>
-                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
-                      Coming soon
-                    </span>
-                  </div>
-                  <p className="text-3xl font-semibold tracking-tight">
-                    {PAID_PLAN.price ?? (
-                      <span className="text-xl text-muted-foreground">
-                        Price announced at launch
+              <Reveal index={1} className="h-full">
+                <div className="card-hover shadow-glow flex h-full flex-col gap-5 rounded-xl border border-primary bg-card p-6 ring-1 ring-primary">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold tracking-tight">Paid</h3>
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
+                        Coming soon
                       </span>
-                    )}
-                  </p>
+                    </div>
+                    <p className="text-3xl font-semibold tracking-tight">
+                      {PAID_PLAN.price ?? (
+                        <span className="text-xl text-muted-foreground">
+                          Price announced at launch
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <ul className="flex flex-col gap-2 text-[15px] text-muted-foreground">
+                    <PlanFeature>
+                      {PAID_PLAN.analysesPerMonth} analyses per month
+                    </PlanFeature>
+                    <PlanFeature>
+                      The full realization plan for every idea
+                    </PlanFeature>
+                    <PlanFeature>MVP definition and week-by-week steps</PlanFeature>
+                    <PlanFeature>Dashboard access to all your reports</PlanFeature>
+                  </ul>
+                  <a href="#waitlist" className={buttonVariants({ className: "mt-auto" })}>
+                    Join the waitlist
+                  </a>
                 </div>
-                <ul className="flex flex-col gap-2 text-[15px] text-muted-foreground">
-                  <PlanFeature>
-                    {PAID_PLAN.analysesPerMonth} analyses per month
-                  </PlanFeature>
-                  <PlanFeature>
-                    The full realization plan for every idea
-                  </PlanFeature>
-                  <PlanFeature>MVP definition and week-by-week steps</PlanFeature>
-                  <PlanFeature>Dashboard access to all your reports</PlanFeature>
-                </ul>
-                <a href="#waitlist" className={buttonVariants()}>
-                  Join the waitlist
-                </a>
-              </div>
+              </Reveal>
             </div>
           </div>
         </section>
 
         {/* Waitlist */}
         <section id="waitlist" className={`${container} py-16 sm:py-24`}>
-          <div className="mx-auto flex max-w-[560px] flex-col items-center gap-4 text-center">
+          <Reveal className="mx-auto flex max-w-[560px] flex-col items-center gap-4 text-center">
             <h2 className="text-2xl font-semibold tracking-tight">
               Not ready to sign up?
             </h2>
@@ -342,7 +410,7 @@ export default function Home() {
             <div className="mt-2 w-full">
               <WaitlistForm />
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 

@@ -84,13 +84,26 @@ All colors tuned for WCAG AA contrast on dark surfaces.
 
 **Verdict glow:** Verdict-colored glow (e.g., emerald for GO) at 20% opacity on the verdict card, so the color reinforces the verdict without being overwhelming.
 
-### Motion
-**Animations:**
-- **Fade-in-up:** Elements slide up 12px + fade on load. `@keyframes fade-in-up 0.6s ease-out` → `.animate-fade-in-up`. Stagger by 0.1s per element for cascade effect.
-- **Smooth transitions:** All interactive elements (buttons, hovers, focus) get `transition-all` + 150ms duration (Tailwind default).
-- **Score ring:** Circular stroke-dashoffset animation, 1s ease-out, on report load (already in place, respects reduced-motion).
+### Motion system
 
-**Reduced motion:** When `@media (prefers-reduced-motion: reduce)`, all animations disabled (`animation: none !important`), transitions shortened to 1ms.
+Two layers, split by what needs JS:
+
+**CSS/Tailwind — hover, press, and simple on-load states.** No framer-motion
+needed; these are pure transitions/keyframes in `globals.css`.
+- **Fade-in-up:** Elements slide up 12px + fade on load. `@keyframes fade-in-up 0.6s ease-out` → `.animate-fade-in-up`. Stagger by 0.1s per element for cascade effect. Used for the hero (manual `animationDelay` stagger — it must play on load regardless of scroll position, not on scroll-into-view).
+- **Glow pulse:** Slow ambient opacity breathing for background glows. `.animate-glow-pulse` (6s, `ease-in-out infinite`). Used behind the landing hero headline.
+- **Card hover lift:** `.card-hover` — translateY(-3px) + border glow + elevated shadow on hover, 0.2s ease-out. Applied to any card that's an interactive target: how-it-works/pricing/evidence cards, dashboard rows, radio-cards, plan-week cards.
+- **Button hover/press:** built into `buttonVariants` (`src/components/ui/button.tsx`) — hover lifts (`-translate-y-0.5`) and adds glow on `default`/`gradient`; press scales down (`active:scale-[0.97]`). No wrapper needed, just use `<Button>`/`buttonVariants`.
+
+**framer-motion — scroll-triggered reveals and JS-driven animation.** The one
+approved extra dependency; reach for it only when CSS can't express the
+motion (count-up numbers, scroll-triggered entrances, per-tick gauge fills).
+- **Tokens:** `src/lib/motion.ts` — `EASE_OUT`, `DURATION` (fast/base/slow), `STAGGER_STEP`, `SPRING_SNAPPY`. Single source of truth so every animated component moves at the same pace.
+- **`<Reveal>`** (`src/components/motion/reveal.tsx`): fade + slide-up that plays once when scrolled into view. Takes `index` to stagger siblings (how-it-works steps, pricing cards, criteria rows, evidence cards, dashboard list, onboarding questions). Takes `as="div"|"li"|"section"` to match the semantic element it replaces, and forwards extra props (`aria-*`, `id`) to the underlying element. Use for anything below the fold; for above-the-fold entrances (VerdictHeader) use a plain mount `initial`/`animate` instead of `whileInView`, since the element may already be in the viewport on load.
+- **ScoreGauge count-up** (`src/components/report/score-ring.tsx`): tick-arc gauge (56 radial ticks, 270° sweep) that counts 0 → score via `animate()` on mount, ~0.9s eased. Client component; the count-up is the reason it can't stay server-rendered CSS.
+- **SegmentedMeter** (`src/components/report/segmented-meter.tsx`): the criteria-bar equivalent of the tick gauge — discrete segments instead of one continuous fill, lighting up left-to-right on mount.
+
+**Reduced motion:** Every framer-motion component checks `useReducedMotion()` and skips straight to the final state — no animated transform ever runs. CSS keyframes are killed globally via `@media (prefers-reduced-motion: reduce)` in `globals.css` (`animation: none !important`, transitions collapsed to 1ms).
 
 ## Components (shadcn/ui base + custom)
 

@@ -1,5 +1,6 @@
 import { ExternalLink, MessageSquare } from "lucide-react";
 import type { EvidenceItem } from "@/lib/report-schema";
+import { Reveal } from "@/components/motion/reveal";
 import { sourceLabel } from "./source-label";
 
 /**
@@ -11,33 +12,35 @@ import { sourceLabel } from "./source-label";
 
 const PREVIEW_PER_TOPIC = 3;
 
-function EvidenceCard({ item }: { item: EvidenceItem }) {
+function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: number }) {
   return (
-    <figure className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3">
-      <blockquote className="font-serif text-[15px] italic leading-relaxed text-foreground">
-        &ldquo;{item.quote}&rdquo;
-      </blockquote>
-      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MessageSquare className="size-3.5" aria-hidden />
-          {sourceLabel(item.url)}
-        </span>
-        {item.similar_count > 1 && (
-          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium">
-            {item.similar_count} similar mentions
+    <Reveal index={index}>
+      <figure className="card-hover flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3">
+        <blockquote className="font-serif text-[15px] italic leading-relaxed text-foreground">
+          &ldquo;{item.quote}&rdquo;
+        </blockquote>
+        <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <MessageSquare className="size-3.5" aria-hidden />
+            {sourceLabel(item.url)}
           </span>
-        )}
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className="inline-flex items-center gap-1 text-primary hover:underline"
-        >
-          View source
-          <ExternalLink className="size-3.5" aria-hidden />
-        </a>
-      </figcaption>
-    </figure>
+          {item.similar_count > 1 && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium">
+              {item.similar_count} similar mentions
+            </span>
+          )}
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+          >
+            View source
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        </figcaption>
+      </figure>
+    </Reveal>
   );
 }
 
@@ -78,8 +81,8 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceItem[] }) {
                 {topic}
               </h3>
               <div className="flex flex-col gap-2">
-                {preview.map((item) => (
-                  <EvidenceCard key={item.id} item={item} />
+                {preview.map((item, i) => (
+                  <EvidenceCard key={item.id} item={item} index={i} />
                 ))}
               </div>
               {rest.length > 0 && (

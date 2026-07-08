@@ -114,28 +114,43 @@
       0 1px 2px rgba(0, 0, 0, 0.3),
       0 4px 12px rgba(0, 0, 0, 0.25);
   }
+
+  /* Shared card hover lift (UI-STYLE-GUIDE Motion system): translateY + border
+     glow + elevated shadow. Applied to how-it-works/pricing/evidence cards,
+     dashboard rows, radio-cards — anywhere a card is an interactive target. */
+  .card-hover {
+    transition:
+      transform 0.2s ease-out,
+      border-color 0.2s ease-out,
+      box-shadow 0.2s ease-out,
+      background-color 0.2s ease-out;
+  }
+  .card-hover:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 4px 12px rgba(0, 0, 0, 0.25),
+      0 12px 24px rgba(0, 0, 0, 0.2);
+  }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
-  html {
+  /* next/font's Inter variable is defined via a className on <body> (see
+     layout.tsx), and CSS custom properties only cascade downward — so
+     font-sans must be applied on body, not html, or html can never see the
+     variable and falls back to the browser's serif default. */
+  body {
     @apply font-sans;
-  }
-}
-
-/* ScoreRing fill animation (src/components/report/score-ring.tsx). Animates the
-   colored stroke from empty to the score on load; --ring-* are set inline. */
-@keyframes score-ring {
-  from {
-    stroke-dashoffset: var(--ring-circumference);
-  }
-  to {
-    stroke-dashoffset: var(--ring-offset);
   }
 }
 
@@ -151,15 +166,29 @@
   }
 }
 
+/* Slow ambient pulse for the hero background glow. */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 0.48;
+  }
+}
+
 @layer utilities {
   .animate-fade-in-up {
     animation: fade-in-up 0.6s ease-out forwards;
   }
+  .animate-glow-pulse {
+    animation: glow-pulse 6s ease-in-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-\[score-ring_1s_ease-out_forwards\],
-  .animate-fade-in-up {
+  .animate-fade-in-up,
+  .animate-glow-pulse {
     animation: none !important;
   }
   * {

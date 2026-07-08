@@ -9,6 +9,7 @@ import { ReportView } from "@/components/report/report-view";
 import { PlanSection } from "@/components/report/plan-section";
 import { LockedPlan } from "@/components/report/locked-plan";
 import { InsufficientEvidence } from "@/components/report/insufficient-evidence";
+import { WizardStepper } from "@/components/wizard/stepper";
 import { ClarifyForm, type ClarifyQuestion } from "./clarify-form";
 import { DiscardButton } from "./discard-button";
 import { ShareControls } from "./share-controls";
@@ -78,6 +79,7 @@ export default async function AnalysisPage({
 
     return (
       <main className={WRAPPER}>
+        <WizardStepper current={2} />
         <header className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">
             A few quick questions
@@ -98,6 +100,7 @@ export default async function AnalysisPage({
     const meta = STATUS_META[status];
     return (
       <main className={WRAPPER}>
+        <WizardStepper current={3} />
         <div className="flex flex-col items-start gap-4">
           <Badge variant={meta.badge}>{meta.label}</Badge>
           <div className="flex flex-col gap-2">

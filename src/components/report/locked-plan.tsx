@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { Reveal } from "@/components/motion/reveal";
 
 /**
  * LockedPlan — the free-tier upsell in place of the realization plan (PRD §6.5,
@@ -22,7 +23,7 @@ const FILLER_TASK =
 
 export function LockedPlan() {
   return (
-    <section aria-labelledby="locked-plan-heading" className="flex flex-col gap-4">
+    <Reveal as="section" aria-labelledby="locked-plan-heading" className="flex flex-col gap-4">
       <h2 id="locked-plan-heading" className="text-xl font-semibold tracking-tight">
         Realization plan
       </h2>
@@ -85,6 +86,6 @@ export function LockedPlan() {
           </Link>
         </div>
       </div>
-    </section>
+    </Reveal>
   );
 }

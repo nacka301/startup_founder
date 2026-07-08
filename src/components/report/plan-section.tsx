@@ -1,4 +1,5 @@
 import type { ReportPlan } from "@/lib/report-schema";
+import { Reveal } from "@/components/motion/reveal";
 
 /**
  * Realization plan (PRD §6.5) — the paid deliverable. Rendered only for paid
@@ -26,31 +27,30 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
       <div className="flex flex-col gap-3">
         <h3 className="text-[15px] font-medium text-foreground">Week by week</h3>
         <ol className="flex flex-col gap-3">
-          {plan.weekly_steps.map((step) => (
-            <li
-              key={step.week}
-              className="rounded-xl border border-border bg-card px-4 py-3"
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="text-[13px] font-semibold uppercase tracking-wide text-primary">
-                  Week {step.week}
-                </span>
-                <span className="text-[15px] font-medium text-foreground">
-                  {step.focus}
-                </span>
+          {plan.weekly_steps.map((step, i) => (
+            <Reveal key={step.week} as="li" index={i}>
+              <div className="card-hover rounded-xl border border-border bg-card px-4 py-3">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[13px] font-semibold uppercase tracking-wide text-primary">
+                    Week {step.week}
+                  </span>
+                  <span className="text-[15px] font-medium text-foreground">
+                    {step.focus}
+                  </span>
+                </div>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {step.tasks.map((task, j) => (
+                    <li
+                      key={j}
+                      className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
+                    >
+                      <span className="select-none text-primary">•</span>
+                      <span>{task}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="mt-2 flex flex-col gap-1">
-                {step.tasks.map((task, i) => (
-                  <li
-                    key={i}
-                    className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
-                  >
-                    <span className="select-none text-primary">•</span>
-                    <span>{task}</span>
-                  </li>
-                ))}
-              </ul>
-            </li>
+            </Reveal>
           ))}
         </ol>
       </div>

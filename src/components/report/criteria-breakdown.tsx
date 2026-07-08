@@ -6,6 +6,8 @@ import {
   type EvidenceItem,
   type ReportCriterion,
 } from "@/lib/report-schema";
+import { Reveal } from "@/components/motion/reveal";
+import { SegmentedMeter } from "./segmented-meter";
 import { sourceLabel } from "./source-label";
 
 /**
@@ -32,10 +34,9 @@ export function CriteriaBreakdown({
     <section className="flex flex-col gap-5">
       <h2 className="text-xl font-semibold tracking-tight">Criteria breakdown</h2>
       <div className="flex flex-col gap-6">
-        {CRITERION_KEYS.map((key) => {
+        {CRITERION_KEYS.map((key, index) => {
           const c = byKey.get(key);
           if (!c) return null;
-          const width = Math.max(0, Math.min(100, c.score));
           // Resolve this criterion's cited evidence, deduped by source URL.
           const cites = Array.from(
             new Map(
@@ -46,7 +47,7 @@ export function CriteriaBreakdown({
             ).values(),
           );
           return (
-            <div key={key} className="flex flex-col gap-2">
+            <Reveal key={key} index={index} className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between gap-4">
                 <h3 className="text-[15px] font-medium text-foreground">
                   {CRITERION_LABELS[key]}
@@ -57,17 +58,13 @@ export function CriteriaBreakdown({
                 </span>
               </div>
               <div
-                className="h-2 w-full overflow-hidden rounded-full bg-muted"
                 role="progressbar"
                 aria-valuenow={c.score}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label={CRITERION_LABELS[key]}
               >
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${width}%`, backgroundColor: color }}
-                />
+                <SegmentedMeter score={c.score} color={color} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {c.reasoning}
@@ -96,7 +93,7 @@ export function CriteriaBreakdown({
                   Based on your onboarding profile, not public evidence.
                 </p>
               )}
-            </div>
+            </Reveal>
           );
         })}
       </div>

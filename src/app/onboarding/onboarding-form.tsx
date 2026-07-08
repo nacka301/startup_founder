@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RadioCardGroup } from "@/components/ui/radio-card";
+import { Reveal } from "@/components/motion/reveal";
 import {
   BUDGET_RANGE_OPTIONS,
   OCCUPATION_OPTIONS,
@@ -15,17 +16,19 @@ import { saveOnboarding } from "./actions";
 
 function Question({
   id,
+  index,
   title,
   hint,
   children,
 }: {
   id: string;
+  index: number;
   title: string;
   hint?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <Reveal as="section" index={index} className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
         <h2 id={id} className="text-[15px] font-semibold text-foreground">
           {title}
@@ -33,7 +36,7 @@ function Question({
         {hint && <p className="text-[13px] text-muted-foreground">{hint}</p>}
       </div>
       {children}
-    </section>
+    </Reveal>
   );
 }
 
@@ -87,6 +90,7 @@ export function OnboardingForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-10">
       <Question
         id="q-occupation"
+        index={0}
         title="What do you do?"
         hint="Helps us judge how an idea fits your situation."
       >
@@ -101,6 +105,7 @@ export function OnboardingForm() {
 
       <Question
         id="q-skills"
+        index={1}
         title="What are you good at?"
         hint="Pick any that apply."
       >
@@ -114,7 +119,7 @@ export function OnboardingForm() {
                 aria-pressed={selected}
                 onClick={() => toggleSkill(option.value)}
                 className={cn(
-                  "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+                  "flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   selected
                     ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
@@ -133,7 +138,7 @@ export function OnboardingForm() {
               setSkills([]);
             }}
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+              "flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               skillsPreferNot
                 ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
@@ -147,6 +152,7 @@ export function OnboardingForm() {
 
       <Question
         id="q-weekly-hours"
+        index={2}
         title="How much time can you put in each week?"
       >
         <RadioCardGroup
@@ -160,6 +166,7 @@ export function OnboardingForm() {
 
       <Question
         id="q-budget"
+        index={3}
         title="What could you invest to get started?"
         hint="Rough range — money you could put toward building this."
       >
@@ -174,6 +181,7 @@ export function OnboardingForm() {
 
       <Question
         id="q-work-preference"
+        index={4}
         title="What kind of work do you enjoy most?"
       >
         <RadioCardGroup
