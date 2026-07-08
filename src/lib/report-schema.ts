@@ -90,9 +90,9 @@ export const VERDICT_DISPLAY: Record<
   "go" | "caution" | "stop",
   { label: string; color: string; blurb: string }
 > = {
-  go: { label: "GO", color: "#16A34A", blurb: "Worth pursuing" },
-  caution: { label: "CAUTION", color: "#D97706", blurb: "Real, with open questions" },
-  stop: { label: "STOP", color: "#DC2626", blurb: "The evidence is against it" },
+  go: { label: "GO", color: "#22C55E", blurb: "Worth pursuing" },
+  caution: { label: "CAUTION", color: "#F59E0B", blurb: "Real, with open questions" },
+  stop: { label: "STOP", color: "#EF4444", blurb: "The evidence is against it" },
 };
 
 /** Human-readable labels for the four criteria, in report order. */

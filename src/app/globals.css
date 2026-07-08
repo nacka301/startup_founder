@@ -38,6 +38,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-gradient-from: var(--gradient-from);
+  --color-gradient-to: var(--gradient-to);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,43 +52,69 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Accent — indigo #4F46E5 (UI-STYLE-GUIDE) */
-  --primary: oklch(0.511 0.262 277);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.511 0.262 277);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Dark premium palette — base near-black slate through elevated surfaces */
+  --background: #0A0B10;
+  --foreground: #F3F4F6;
+  --card: #14161D;
+  --card-foreground: #F3F4F6;
+  --popover: #14161D;
+  --popover-foreground: #F3F4F6;
+  /* Surface tokens for section-alt and higher elevation */
+  --surface: #14161D;
+  --surface-2: #1B1E27;
+  /* Primary accent — indigo to violet gradient */
+  --primary: #6366F1;
+  --primary-foreground: #F8FAFC;
+  --gradient-from: #6366F1;
+  --gradient-to: #8B5CF6;
+  /* Secondary & muted — darker surfaces with light text */
+  --secondary: #1B1E27;
+  --secondary-foreground: #F3F4F6;
+  --muted: #1B1E27;
+  --muted-foreground: #9CA3AF;
+  --accent: #1B1E27;
+  --accent-foreground: #F3F4F6;
+  /* Destructive — bright red for dark */
+  --destructive: #EF4444;
+  /* Borders & inputs — translucent light on dark */
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.14);
+  /* Ring — indigo focus glow */
+  --ring: #6366F1;
+  /* Chart colors — indigo/violet ramp */
+  --chart-1: #818CF8;
+  --chart-2: #6366F1;
+  --chart-3: #8B5CF6;
+  --chart-4: #A78BFA;
+  --chart-5: #C4B5FD;
+  /* Radius — softer for premium feel */
+  --radius: 0.75rem;
+  /* Sidebar (unused in v1, kept for shadcn compatibility) */
+  --sidebar: #1B1E27;
+  --sidebar-foreground: #F3F4F6;
+  --sidebar-primary: #6366F1;
+  --sidebar-primary-foreground: #F8FAFC;
+  --sidebar-accent: #1B1E27;
+  --sidebar-accent-foreground: #F3F4F6;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #6366F1;
 }
 
-/* No dark mode in v1 (UI-STYLE-GUIDE). The `dark` variant stays class-based
-   above, and the `.dark` class is never applied, so the app is always light. */
+/* Elevation & glow helpers for premium feel */
+@layer utilities {
+  .shadow-elevated {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 4px 12px rgba(0, 0, 0, 0.25),
+      0 12px 24px rgba(0, 0, 0, 0.2);
+  }
+  .shadow-glow {
+    box-shadow:
+      0 0 20px rgba(99, 102, 241, 0.25),
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+}
 
 @layer base {
   * {
@@ -109,8 +139,32 @@
   }
 }
 
+/* Fade in & subtle upward slide for load animations (landing hero, cards, etc). */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out forwards;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-\[score-ring_1s_ease-out_forwards\] {
+  .animate-\[score-ring_1s_ease-out_forwards\],
+  .animate-fade-in-up {
     animation: none !important;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

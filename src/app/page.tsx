@@ -64,6 +64,12 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      {/* Hero glow background */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-gradient-to-b from-primary/20 to-transparent blur-3xl opacity-40"
+      />
+
       {/* Top bar */}
       <header className="border-b border-border">
         <div className={`${container} flex h-16 items-center justify-between`}>
@@ -85,22 +91,22 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className="relative flex-1">
         {/* Hero */}
         <section className={`${container} flex flex-col items-center gap-6 py-20 text-center sm:py-28`}>
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="animate-fade-in-up max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
             Get an honest, evidence-backed verdict on your business idea
           </h1>
-          <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+          <p className="animate-fade-in-up max-w-2xl text-lg leading-relaxed text-muted-foreground" style={{ animationDelay: "0.1s" }}>
             Describe your idea, answer 5 quick questions, and in 5–10 minutes get
             a 1–100 score, a GO / CAUTION / STOP verdict, real evidence from Reddit
             and forums (with links), an MVP sketch, and a step-by-step realization
             plan.
           </p>
-          <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <div className="animate-fade-in-up flex flex-col items-center gap-3 sm:flex-row" style={{ animationDelay: "0.2s" }}>
             <Link
               href="/analyses/new"
-              className={buttonVariants({ size: "lg" })}
+              className={buttonVariants({ variant: "gradient", size: "lg" })}
             >
               Analyze your idea
               <ArrowRight className="size-4" aria-hidden />
@@ -118,7 +124,7 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section className="border-y border-border bg-[#FAFAF9]">
+        <section className="border-y border-border bg-surface">
           <div className={`${container} py-16 sm:py-20`}>
             <div className="flex flex-col items-center gap-2 text-center">
               <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
@@ -255,7 +261,7 @@ export default function Home() {
         </section>
 
         {/* Pricing */}
-        <section className="border-y border-border bg-[#FAFAF9]">
+        <section className="border-y border-border bg-surface">
           <div className={`${container} py-16 sm:py-24`}>
             <div className="flex flex-col items-center gap-2 text-center">
               <h2 className="text-2xl font-semibold tracking-tight">Pricing</h2>
@@ -289,7 +295,7 @@ export default function Home() {
               </div>
 
               {/* Paid */}
-              <div className="flex flex-col gap-5 rounded-xl border border-primary bg-card p-6 ring-1 ring-primary">
+              <div className="shadow-glow flex flex-col gap-5 rounded-xl border border-primary bg-card p-6 ring-1 ring-primary">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold tracking-tight">Paid</h3>

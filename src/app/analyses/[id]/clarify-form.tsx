@@ -53,10 +53,14 @@ export function ClarifyForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-10">
-      {questions.map((q) => {
+      {questions.map((q, idx) => {
         const labelId = `q-${q.id}`;
         return (
-          <section key={q.id} className="flex flex-col gap-3">
+          <section
+            key={q.id}
+            className="animate-fade-in-up flex flex-col gap-3"
+            style={{ animationDelay: `${idx * 0.1}s` }}
+          >
             <h2 id={labelId} className="text-[15px] font-semibold text-foreground">
               <span className="text-muted-foreground">{q.position}.</span>{" "}
               {q.question}

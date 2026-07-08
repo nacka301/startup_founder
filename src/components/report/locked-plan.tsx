@@ -67,7 +67,7 @@ export function LockedPlan() {
         </div>
 
         {/* Lock overlay + upsell CTA. */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-background/40 via-background/70 to-background px-6 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-background/30 via-background/60 to-background px-6 text-center shadow-glow">
           <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Lock className="size-5" aria-hidden />
           </span>
