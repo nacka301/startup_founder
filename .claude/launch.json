@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "email-preview-tmp",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "4321", "C:\\Users\\David\\AppData\\Local\\Temp\\claude\\C--Users-David-startup-founder\\4b07cb72-4db9-432b-9c94-614680070b83\\scratchpad\\email-preview"],
+      "port": 4321
     }
   ]
 }

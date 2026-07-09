@@ -44,6 +44,10 @@ const stubServerOnly = esbuildPlugin({
  */
 export default defineConfig({
   project: "proj_imsbxwdbfavtolyjovnc",
+  // Trigger.dev's default runtime (Node 21.7.3) has no global WebSocket, which
+  // @supabase/supabase-js needs to construct its realtime client even when
+  // realtime features aren't used — node-22 has it natively.
+  runtime: "node-22",
   dirs: ["./src/trigger"],
   maxDuration: 900,
   build: {
