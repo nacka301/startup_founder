@@ -1,19 +1,18 @@
+import { APP_URL } from "@/lib/env";
+
 /**
- * Absolute base URL of the app, for building links that leave the request
- * context — the report-ready email and shareable `/r/[token]` URLs (the
- * Trigger.dev task has no incoming request to derive an origin from).
+ * Absolute URLs for links that leave the request context — the report-ready
+ * email and shareable `/r/[token]` URLs (the Trigger.dev task has no incoming
+ * request to derive an origin from).
  *
- * Reads `NEXT_PUBLIC_APP_URL` (e.g. https://ideaverdict.com); falls back to
- * localhost for dev. Must also be set in the Trigger.dev environment, since the
- * analysis job builds the email link from it.
+ * The base is `NEXT_PUBLIC_APP_URL` (e.g. https://buildworthy.tech), validated
+ * in `@/lib/env`. It must be set in the Vercel BUILD environment — the share
+ * control is a client component, so the value is inlined into the browser
+ * bundle at build time — and in the Trigger.dev environment, which builds the
+ * email link from it at runtime.
  */
-export function appUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  const base = raw && raw.length > 0 ? raw : "http://localhost:3000";
-  return base.replace(/\/+$/, "");
-}
 
 /** Build an absolute URL for a path (leading slash optional). */
 export function absoluteUrl(path: string): string {
-  return `${appUrl()}/${path.replace(/^\/+/, "")}`;
+  return `${APP_URL}/${path.replace(/^\/+/, "")}`;
 }
