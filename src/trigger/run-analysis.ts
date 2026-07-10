@@ -19,8 +19,103 @@ import {
   MIN_EVIDENCE,
   type EvidenceRow,
 } from "@/lib/evidence/config";
+import {
+  AnalysisFailure,
+  codeFromSerializedError,
+  type FailureCode,
+} from "@/lib/failure";
 
 type RunAnalysisPayload = { analysisId: string };
+
+/**
+ * The run's own time budget, deliberately well under `maxDuration` (900s) in
+ * trigger.config.ts. Trigger.dev does NOT call onFailure/onSuccess/cleanup when a
+ * run exceeds `maxDuration` — the run would just die and leave the analysis stuck
+ * in 'running' forever. Tripping this deadline first throws an ordinary error, so
+ * the normal failure path runs and the analysis is always finalized.
+ */
+const DEADLINE_MS = 600_000;
+
+/** Throws `timed_out` once the run's budget is spent. Called between stages. */
+function checkDeadline(deadline: number): void {
+  if (Date.now() > deadline) throw new AnalysisFailure("timed_out");
+}
+
+/**
+ * Tag whatever a stage throws with that stage's machine-safe code, then RETHROW.
+ * Rethrowing is the point: the task's `retry` config and the
+ * `analysis_raw_evidence` checkpointing both depend on transient errors bubbling
+ * up so a retry can resume. Swallowing here would turn a retryable blip into a
+ * permanent failure. Finalization happens once, in onFailure.
+ */
+async function runStage<T>(code: FailureCode, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    throw e instanceof AnalysisFailure ? e : new AnalysisFailure(code, e);
+  }
+}
+
+/** Structured, secret-free failure log. Never the stack, never `cause`. */
+function logFailure(
+  message: string,
+  analysisId: string,
+  code: FailureCode,
+  error: unknown,
+): void {
+  logger.error(message, {
+    analysisId,
+    code,
+    // Our own `"<code>: <detail>"` message — a Zod issue, a Postgres message, an
+    // HTTP status. Truncated, and never interpolated into anything user-facing.
+    detail:
+      error instanceof Error ? error.message.slice(0, 300) : "non-error thrown",
+  });
+}
+
+/**
+ * The single place an analysis becomes 'failed'. Guarded on queued/running so it
+ * can never clobber a 'done' or 'insufficient_evidence' row, and wrapped so it can
+ * never throw — a throw here is exactly what would leave the row stuck.
+ *
+ * The credit needs no refund: it is consumed only as the final write alongside the
+ * 'done' flip, so a run that reaches this function never spent one. Same principle
+ * as the insufficient_evidence path.
+ *
+ * Returns true only if this call performed the transition (so the caller knows
+ * whether to send the apologetic email).
+ */
+async function finalizeFailure(
+  service: SupabaseClient,
+  analysisId: string,
+  code: FailureCode,
+): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from("analyses")
+      .update({ status: "failed", failure_code: code })
+      .eq("id", analysisId)
+      .in("status", ["queued", "running"])
+      .select("id");
+
+    if (error) {
+      logger.error("Failed to mark analysis failed", {
+        analysisId,
+        code,
+        detail: error.message.slice(0, 300),
+      });
+      return false;
+    }
+    return (data?.length ?? 0) > 0;
+  } catch (e) {
+    logger.error("finalizeFailure threw", {
+      analysisId,
+      code,
+      detail: e instanceof Error ? e.message.slice(0, 300) : "non-error thrown",
+    });
+    return false;
+  }
+}
 
 /** Merge rows sharing a key, summing their similar_count (keeps the first row). */
 function dedupeBy(
@@ -92,7 +187,8 @@ async function notifyReportReady(
         verdict: "go" | "caution" | "stop";
         summary: string;
       }
-    | { status: "insufficient_evidence"; analysisId: string; summary: string },
+    | { status: "insufficient_evidence"; analysisId: string; summary: string }
+    | { status: "failed"; analysisId: string },
 ): Promise<void> {
   try {
     const { data, error } = await service.auth.admin.getUserById(userId);
@@ -112,12 +208,18 @@ async function notifyReportReady(
             verdict: params.verdict,
             summary: params.summary,
           }
-        : {
-            to: email,
-            analysisId: params.analysisId,
-            status: "insufficient_evidence",
-            summary: params.summary,
-          },
+        : params.status === "insufficient_evidence"
+          ? {
+              to: email,
+              analysisId: params.analysisId,
+              status: "insufficient_evidence",
+              summary: params.summary,
+            }
+          : {
+              to: email,
+              analysisId: params.analysisId,
+              status: "failed",
+            },
     );
 
     if (!result.ok) {
@@ -160,6 +262,7 @@ export const runAnalysis = task({
   run: async (payload: RunAnalysisPayload) => {
     const { analysisId } = payload;
     const service = createServiceClient();
+    const deadline = Date.now() + DEADLINE_MS;
 
     // 1. Load the analysis and move queued → running (idempotent on retry).
     const { data: analysis } = await service
@@ -184,306 +287,399 @@ export const runAnalysis = task({
       .eq("id", analysisId)
       .in("status", ["queued", "running"]);
 
-    // 2. Load the 5 clarification answers.
-    const { data: questions } = await service
-      .from("analysis_questions")
-      .select("position, question, answer")
-      .eq("analysis_id", analysisId)
-      .order("position");
+    // Everything below is wrapped: any stage error is tagged with a machine-safe
+    // code, logged without secrets, and rethrown so Trigger.dev can retry and, once
+    // retries are exhausted, onFailure can finalize the analysis as 'failed'.
+    try {
+      // 2. Load the 5 clarification answers.
+      const { data: questions } = await service
+        .from("analysis_questions")
+        .select("position, question, answer")
+        .eq("analysis_id", analysisId)
+        .order("position");
 
-    const answers = (questions ?? []).map((q) => ({
-      question: q.question as string,
-      answer: (q.answer as string | null) ?? "I don't know",
-    }));
-
-    // 3. Query planning (Sonnet) — reuse a cached plan on retry so a retry
-    // never re-spends the Sonnet call.
-    const cachedPayload = await readRawPayload(service, analysisId);
-
-    let queries: string[];
-    if (cachedPayload?.queries && cachedPayload.queries.length > 0) {
-      queries = cachedPayload.queries;
-      logger.info("Reusing cached search queries", { count: queries.length });
-    } else {
-      const result = await callClaudeJson({
-        model: queriesPrompt.QUERIES_MODEL,
-        stage: queriesPrompt.QUERIES_STAGE,
-        analysisId,
-        system: queriesPrompt.buildSystemPrompt(),
-        user: queriesPrompt.buildUserPrompt(analysis.idea_text, answers),
-        schema: queriesPrompt.searchQueriesResponseSchema,
-        maxTokens: 1000,
-      });
-      queries = result.queries;
-      logger.info("Planned search queries", { count: queries.length });
-    }
-
-    // 4. Gather candidates (Tavily — Reddit + forums), cached for retries.
-    const candidates = await gatherCandidates(
-      service,
-      analysisId,
-      queries,
-      cachedPayload,
-    );
-    logger.info("Gathered candidates", { count: candidates.length });
-
-    // 5. Extract with Haiku in batches, resuming from the last checkpointed
-    // batch on retry so already-extracted batches aren't re-spent.
-    const extracted: EvidenceRow[] = cachedPayload?.extracted
-      ? [...cachedPayload.extracted]
-      : [];
-    const startBatch = cachedPayload?.batchesDone ?? 0;
-
-    for (
-      let batchIndex = startBatch;
-      batchIndex * EXTRACT_BATCH_SIZE < candidates.length;
-      batchIndex++
-    ) {
-      const batch = candidates.slice(
-        batchIndex * EXTRACT_BATCH_SIZE,
-        (batchIndex + 1) * EXTRACT_BATCH_SIZE,
-      );
-      const batchInput = batch.map((c, j) => ({
-        index: j,
-        source: c.source,
-        text: `${c.title}\n${c.content}`.trim().slice(0, CANDIDATE_TEXT_LIMIT),
+      const answers = (questions ?? []).map((q) => ({
+        question: q.question as string,
+        answer: (q.answer as string | null) ?? "I don't know",
       }));
 
-      const { items } = await callClaudeJson({
-        model: extractPrompt.EXTRACT_MODEL,
-        stage: extractPrompt.EXTRACT_STAGE,
-        analysisId,
-        system: extractPrompt.buildSystemPrompt(),
-        user: extractPrompt.buildUserPrompt(analysis.idea_text, batchInput),
-        schema: extractPrompt.evidenceExtractionResponseSchema,
-        maxTokens: 2000,
-      });
+      // 3. Query planning (Sonnet) — reuse a cached plan on retry so a retry
+      // never re-spends the Sonnet call.
+      const cachedPayload = await readRawPayload(service, analysisId);
 
-      for (const item of items) {
-        if (!item.relevant) continue;
-        if (item.index < 0 || item.index >= batch.length) continue;
-        if (!item.quote || !item.severity || !item.topic) continue;
-        if (!quoteInSource(item.quote, batchInput[item.index].text)) continue;
-        const cand = batch[item.index];
-        extracted.push({
-          analysis_id: analysisId,
-          source: cand.source,
-          url: cand.url,
-          quote: item.quote,
-          author_handle: cand.authorHandle,
-          severity: item.severity,
-          topic: item.topic,
-          similar_count: 1,
-        });
-      }
-
-      await writeRawPayload(service, analysisId, {
-        queries,
-        candidates,
-        extracted,
-        batchesDone: batchIndex + 1,
-      });
-    }
-
-    // Dedupe by URL, then by near-identical quote; similar_count reflects merges.
-    const deduped = dedupeBy(
-      dedupeBy(extracted, (r) => normalizeUrl(r.url)),
-      (r) => normalizeQuote(r.quote),
-    );
-
-    // Clean slate + rebuild, done once per attempt from the fully accumulated
-    // (possibly resumed) extraction — never partial. Select back the persisted
-    // rows so Stage C can cite their real evidence_items IDs.
-    await service.from("evidence_items").delete().eq("analysis_id", analysisId);
-    let persistedEvidence: {
-      id: string;
-      source: string;
-      url: string;
-      quote: string;
-      severity: number;
-      topic: string;
-      similar_count: number;
-    }[] = [];
-    if (deduped.length > 0) {
-      const { data: inserted, error } = await service
-        .from("evidence_items")
-        .insert(deduped)
-        .select("id, source, url, quote, severity, topic, similar_count");
-      if (error) {
-        throw new Error(`Failed to insert evidence_items: ${error.message}`);
-      }
-      persistedEvidence = inserted ?? [];
-    }
-    logger.info("Extracted evidence", { relevant: deduped.length });
-
-    // 6. Insufficient-evidence gate.
-    if (deduped.length < MIN_EVIDENCE) {
-      await service
-        .from("analyses")
-        .update({ status: "insufficient_evidence" })
-        .eq("id", analysisId)
-        .in("status", ["queued", "running"]);
-
-      await service.from("reports").upsert(
-        {
-          analysis_id: analysisId,
-          verdict: "insufficient",
-          score: null,
-          summary:
-            "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
-          insufficient_reason: buildInsufficientReason({
-            queries: queries.length,
-            candidates: candidates.length,
-            relevant: deduped.length,
+      let queries: string[];
+      if (cachedPayload?.queries && cachedPayload.queries.length > 0) {
+        queries = cachedPayload.queries;
+        logger.info("Reusing cached search queries", { count: queries.length });
+      } else {
+        const result = await runStage("query_planning_failed", () =>
+          callClaudeJson({
+            model: queriesPrompt.QUERIES_MODEL,
+            stage: queriesPrompt.QUERIES_STAGE,
+            analysisId,
+            system: queriesPrompt.buildSystemPrompt(),
+            user: queriesPrompt.buildUserPrompt(analysis.idea_text, answers),
+            schema: queriesPrompt.searchQueriesResponseSchema,
+            maxTokens: 1000,
           }),
-        },
-        { onConflict: "analysis_id" },
+        );
+        queries = result.queries;
+        logger.info("Planned search queries", { count: queries.length });
+      }
+
+      // 4. Gather candidates (Tavily — Reddit + forums), cached for retries.
+      checkDeadline(deadline);
+      const candidates = await runStage("evidence_search_failed", () =>
+        gatherCandidates(service, analysisId, queries, cachedPayload),
+      );
+      logger.info("Gathered candidates", { count: candidates.length });
+
+      // 5. Extract with Haiku in batches, resuming from the last checkpointed
+      // batch on retry so already-extracted batches aren't re-spent.
+      const extracted: EvidenceRow[] = cachedPayload?.extracted
+        ? [...cachedPayload.extracted]
+        : [];
+      const startBatch = cachedPayload?.batchesDone ?? 0;
+
+      for (
+        let batchIndex = startBatch;
+        batchIndex * EXTRACT_BATCH_SIZE < candidates.length;
+        batchIndex++
+      ) {
+        // Per-batch: a long extraction is where the run is most likely to eat its
+        // whole budget, and every completed batch is already checkpointed.
+        checkDeadline(deadline);
+
+        const batch = candidates.slice(
+          batchIndex * EXTRACT_BATCH_SIZE,
+          (batchIndex + 1) * EXTRACT_BATCH_SIZE,
+        );
+        const batchInput = batch.map((c, j) => ({
+          index: j,
+          source: c.source,
+          text: `${c.title}\n${c.content}`.trim().slice(0, CANDIDATE_TEXT_LIMIT),
+        }));
+
+        const { items } = await runStage("evidence_extraction_failed", () =>
+          callClaudeJson({
+            model: extractPrompt.EXTRACT_MODEL,
+            stage: extractPrompt.EXTRACT_STAGE,
+            analysisId,
+            system: extractPrompt.buildSystemPrompt(),
+            user: extractPrompt.buildUserPrompt(analysis.idea_text, batchInput),
+            schema: extractPrompt.evidenceExtractionResponseSchema,
+            maxTokens: 2000,
+          }),
+        );
+
+        for (const item of items) {
+          if (!item.relevant) continue;
+          if (item.index < 0 || item.index >= batch.length) continue;
+          if (!item.quote || !item.severity || !item.topic) continue;
+          if (!quoteInSource(item.quote, batchInput[item.index].text)) continue;
+          const cand = batch[item.index];
+          extracted.push({
+            analysis_id: analysisId,
+            source: cand.source,
+            url: cand.url,
+            quote: item.quote,
+            author_handle: cand.authorHandle,
+            severity: item.severity,
+            topic: item.topic,
+            similar_count: 1,
+          });
+        }
+
+        await runStage("evidence_persist_failed", () =>
+          writeRawPayload(service, analysisId, {
+            queries,
+            candidates,
+            extracted,
+            batchesDone: batchIndex + 1,
+          }),
+        );
+      }
+
+      // Dedupe by URL, then by near-identical quote; similar_count reflects merges.
+      const deduped = dedupeBy(
+        dedupeBy(extracted, (r) => normalizeUrl(r.url)),
+        (r) => normalizeQuote(r.quote),
       );
 
-      // Credit is intentionally NOT consumed here (nor is profiles.free_credit_used
-      // touched) — reaching insufficient_evidence also frees the user's active slot.
-      logger.info("Insufficient evidence; report written", {
-        relevant: deduped.length,
+      // Clean slate + rebuild, done once per attempt from the fully accumulated
+      // (possibly resumed) extraction — never partial. Select back the persisted
+      // rows so Stage C can cite their real evidence_items IDs.
+      const persistedEvidence = await runStage("evidence_persist_failed", async () => {
+        await service.from("evidence_items").delete().eq("analysis_id", analysisId);
+        if (deduped.length === 0) return [];
+        const { data: inserted, error } = await service
+          .from("evidence_items")
+          .insert(deduped)
+          .select("id, source, url, quote, severity, topic, similar_count");
+        if (error) {
+          throw new Error(`Failed to insert evidence_items: ${error.message}`);
+        }
+        return inserted ?? [];
+      });
+      logger.info("Extracted evidence", { relevant: deduped.length });
+
+      // 6. Insufficient-evidence gate. This is a VALID OUTCOME, not a failure: it
+      // never sets a failure_code and never reaches finalizeFailure.
+      if (deduped.length < MIN_EVIDENCE) {
+        await service
+          .from("analyses")
+          .update({ status: "insufficient_evidence" })
+          .eq("id", analysisId)
+          .in("status", ["queued", "running"]);
+
+        await service.from("reports").upsert(
+          {
+            analysis_id: analysisId,
+            verdict: "insufficient",
+            score: null,
+            summary:
+              "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
+            insufficient_reason: buildInsufficientReason({
+              queries: queries.length,
+              candidates: candidates.length,
+              relevant: deduped.length,
+            }),
+          },
+          { onConflict: "analysis_id" },
+        );
+
+        // Credit is intentionally NOT consumed here (nor is profiles.free_credit_used
+        // touched) — reaching insufficient_evidence also frees the user's active slot.
+        logger.info("Insufficient evidence; report written", {
+          relevant: deduped.length,
+        });
+
+        // Stage E — notify the user (best-effort; never fails the run).
+        await notifyReportReady(service, analysis.user_id, {
+          status: "insufficient_evidence",
+          analysisId,
+          summary:
+            "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
+        });
+
+        return {
+          status: "insufficient_evidence",
+          evidenceCount: deduped.length,
+        } as const;
+      }
+
+      // 7. Sufficient — Stage C (verdict) + Stage D (plan), then finalize.
+
+      // Load the founder's profile for personal-feasibility scoring and the credit
+      // rule. (Done here so the insufficient-evidence path above is untouched.)
+      const { data: profile } = await service
+        .from("profiles")
+        .select(
+          "plan, free_credit_used, occupation, skills, weekly_hours, budget_range, work_preference",
+        )
+        .eq("id", analysis.user_id)
+        .single();
+
+      const profileForPrompt: ProfileInput = {
+        occupation: (profile?.occupation as string | null) ?? null,
+        skills: (profile?.skills as string[] | null) ?? null,
+        weekly_hours: (profile?.weekly_hours as string | null) ?? null,
+        budget_range: (profile?.budget_range as string | null) ?? null,
+        work_preference: (profile?.work_preference as string | null) ?? null,
+      };
+
+      const evidenceForPrompt = persistedEvidence.map((e) => ({
+        id: e.id,
+        source: e.source,
+        quote: e.quote,
+        severity: e.severity,
+        topic: e.topic,
+        similar_count: e.similar_count,
+        url: e.url,
+      }));
+      const validEvidenceIds = new Set(evidenceForPrompt.map((e) => e.id));
+
+      // Stage C — verdict. Regenerated on every attempt (not checkpointed): the
+      // extraction step above rebuilds evidence_items with fresh IDs each attempt,
+      // so a cached verdict would cite deleted rows. The schema is parameterized
+      // with this analysis's evidence IDs, so a hallucinated/missing reference fails
+      // validation → one corrective retry (inside callClaudeJson) → the run fails
+      // rather than storing an unsupported claim.
+      checkDeadline(deadline);
+      const verdict = await runStage("verdict_generation_failed", () =>
+        callClaudeJson({
+          model: verdictPrompt.VERDICT_MODEL,
+          stage: verdictPrompt.VERDICT_STAGE,
+          analysisId,
+          system: verdictPrompt.buildSystemPrompt(),
+          user: verdictPrompt.buildUserPrompt(
+            analysis.idea_text,
+            answers,
+            profileForPrompt,
+            evidenceForPrompt,
+          ),
+          schema: verdictPrompt.buildVerdictResponseSchema(validEvidenceIds),
+          maxTokens: 2500,
+        }),
+      );
+      logger.info("Scored verdict", {
+        score: verdict.score,
+        verdict: verdict.verdict,
       });
 
-      // Stage E — notify the user (best-effort; never fails the run).
+      // Stage D — realization plan (always generated; UI gates it for free users).
+      checkDeadline(deadline);
+      const plan = await runStage("plan_generation_failed", () =>
+        callClaudeJson({
+          model: planPrompt.PLAN_MODEL,
+          stage: planPrompt.PLAN_STAGE,
+          analysisId,
+          system: planPrompt.buildSystemPrompt(),
+          user: planPrompt.buildUserPrompt(
+            analysis.idea_text,
+            answers,
+            profileForPrompt,
+            {
+              summary: verdict.summary,
+              mvpSketch: verdict.solutions.mvp_sketch,
+              possibleSolutions: verdict.solutions.possible_solutions,
+            },
+          ),
+          schema: planPrompt.realizationPlanResponseSchema,
+          maxTokens: 2500,
+        }),
+      );
+      logger.info("Generated realization plan");
+
+      // 8. Persist the report, then consume the credit as the final commit.
+      await runStage("report_persist_failed", async () => {
+        const { error } = await service.from("reports").upsert(
+          {
+            analysis_id: analysisId,
+            score: verdict.score,
+            verdict: verdict.verdict,
+            summary: verdict.summary,
+            criteria: verdict.criteria,
+            solutions: verdict.solutions,
+            plan,
+            insufficient_reason: null,
+          },
+          { onConflict: "analysis_id" },
+        );
+        if (error) {
+          throw new Error(`Failed to upsert report: ${error.message}`);
+        }
+      });
+
+      // Consume the credit only now. free_credit_used gates a free user's next
+      // analysis, so set it for anyone not explicitly paid. consumed_credit is set
+      // for everyone (paid usage is counted from it). The guarded status flip to
+      // 'done' is the last write: until it lands the status stays 'running', so any
+      // transient failure retries cleanly and no failed run ever consumes credit.
+      if (profile?.plan !== "paid") {
+        await service
+          .from("profiles")
+          .update({ free_credit_used: true })
+          .eq("id", analysis.user_id);
+      }
+      // Checked, not fire-and-forget: a silently-failed flip would return 'done'
+      // from the task while the row stayed 'running' — stuck forever, since
+      // onFailure never runs for a successful task. Throwing instead lets the
+      // retry land it (both writes above are idempotent).
+      await runStage("report_persist_failed", async () => {
+        const { error } = await service
+          .from("analyses")
+          .update({ status: "done", consumed_credit: true })
+          .eq("id", analysisId)
+          .in("status", ["queued", "running"]);
+        if (error) {
+          throw new Error(`Failed to mark analysis done: ${error.message}`);
+        }
+      });
+
+      logger.info("Analysis done", {
+        score: verdict.score,
+        verdict: verdict.verdict,
+      });
+
+      // Stage E — notify the user their verdict is ready (best-effort; a failed
+      // send is logged and swallowed so the run still completes 'done').
       await notifyReportReady(service, analysis.user_id, {
-        status: "insufficient_evidence",
+        status: "done",
         analysisId,
-        summary:
-          "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
-      });
-
-      return { status: "insufficient_evidence", evidenceCount: deduped.length } as const;
-    }
-
-    // 7. Sufficient — Stage C (verdict) + Stage D (plan), then finalize.
-
-    // Load the founder's profile for personal-feasibility scoring and the credit
-    // rule. (Done here so the insufficient-evidence path above is untouched.)
-    const { data: profile } = await service
-      .from("profiles")
-      .select(
-        "plan, free_credit_used, occupation, skills, weekly_hours, budget_range, work_preference",
-      )
-      .eq("id", analysis.user_id)
-      .single();
-
-    const profileForPrompt: ProfileInput = {
-      occupation: (profile?.occupation as string | null) ?? null,
-      skills: (profile?.skills as string[] | null) ?? null,
-      weekly_hours: (profile?.weekly_hours as string | null) ?? null,
-      budget_range: (profile?.budget_range as string | null) ?? null,
-      work_preference: (profile?.work_preference as string | null) ?? null,
-    };
-
-    const evidenceForPrompt = persistedEvidence.map((e) => ({
-      id: e.id,
-      source: e.source,
-      quote: e.quote,
-      severity: e.severity,
-      topic: e.topic,
-      similar_count: e.similar_count,
-      url: e.url,
-    }));
-    const validEvidenceIds = new Set(evidenceForPrompt.map((e) => e.id));
-
-    // Stage C — verdict. Regenerated on every attempt (not checkpointed): the
-    // extraction step above rebuilds evidence_items with fresh IDs each attempt,
-    // so a cached verdict would cite deleted rows. The schema is parameterized
-    // with this analysis's evidence IDs, so a hallucinated/missing reference fails
-    // validation → one corrective retry (inside callClaudeJson) → the run fails
-    // rather than storing an unsupported claim.
-    const verdict = await callClaudeJson({
-      model: verdictPrompt.VERDICT_MODEL,
-      stage: verdictPrompt.VERDICT_STAGE,
-      analysisId,
-      system: verdictPrompt.buildSystemPrompt(),
-      user: verdictPrompt.buildUserPrompt(
-        analysis.idea_text,
-        answers,
-        profileForPrompt,
-        evidenceForPrompt,
-      ),
-      schema: verdictPrompt.buildVerdictResponseSchema(validEvidenceIds),
-      maxTokens: 2500,
-    });
-    logger.info("Scored verdict", {
-      score: verdict.score,
-      verdict: verdict.verdict,
-    });
-
-    // Stage D — realization plan (always generated; UI gates it for free users).
-    const plan = await callClaudeJson({
-      model: planPrompt.PLAN_MODEL,
-      stage: planPrompt.PLAN_STAGE,
-      analysisId,
-      system: planPrompt.buildSystemPrompt(),
-      user: planPrompt.buildUserPrompt(analysis.idea_text, answers, profileForPrompt, {
-        summary: verdict.summary,
-        mvpSketch: verdict.solutions.mvp_sketch,
-        possibleSolutions: verdict.solutions.possible_solutions,
-      }),
-      schema: planPrompt.realizationPlanResponseSchema,
-      maxTokens: 2500,
-    });
-    logger.info("Generated realization plan");
-
-    // 8. Persist the report, then consume the credit as the final commit.
-    await service.from("reports").upsert(
-      {
-        analysis_id: analysisId,
         score: verdict.score,
         verdict: verdict.verdict,
         summary: verdict.summary,
-        criteria: verdict.criteria,
-        solutions: verdict.solutions,
-        plan,
-        insufficient_reason: null,
-      },
-      { onConflict: "analysis_id" },
-    );
+      });
 
-    // Consume the credit only now. free_credit_used gates a free user's next
-    // analysis, so set it for anyone not explicitly paid. consumed_credit is set
-    // for everyone (paid usage is counted from it). The guarded status flip to
-    // 'done' is the last write: until it lands the status stays 'running', so any
-    // transient failure retries cleanly and no failed run ever consumes credit.
-    if (profile?.plan !== "paid") {
-      await service
-        .from("profiles")
-        .update({ free_credit_used: true })
-        .eq("id", analysis.user_id);
+      return { status: "done", score: verdict.score } as const;
+    } catch (error) {
+      // Log here, where the error is still our typed AnalysisFailure, then rethrow
+      // so Trigger.dev retries. Finalization is onFailure's job — marking 'failed'
+      // now would block the remaining attempts from writing anything.
+      const code = codeFromSerializedError(error);
+      logFailure("Analysis stage failed", analysisId, code, error);
+      throw error;
     }
-    await service
-      .from("analyses")
-      .update({ status: "done", consumed_credit: true })
-      .eq("id", analysisId)
-      .in("status", ["queued", "running"]);
-
-    logger.info("Analysis done", { score: verdict.score, verdict: verdict.verdict });
-
-    // Stage E — notify the user their verdict is ready (best-effort; a failed
-    // send is logged and swallowed so the run still completes 'done').
-    await notifyReportReady(service, analysis.user_id, {
-      status: "done",
-      analysisId,
-      score: verdict.score,
-      verdict: verdict.verdict,
-      summary: verdict.summary,
-    });
-
-    return { status: "done", score: verdict.score } as const;
   },
 
-  // Runs only after all retries are exhausted: mark failed, credit untouched.
-  onFailure: async ({ payload }) => {
+  /**
+   * Runs only after all retries are exhausted. The single finalizer for a failed
+   * run: mark 'failed' with the stage's code, then apologize by email. The whole
+   * body is guarded because an uncaught throw here (a missing env var in
+   * createServiceClient, say) is precisely what would strand the analysis in
+   * 'running'. Credit is untouched — it is never consumed before the 'done' flip.
+   */
+  onFailure: async ({ payload, error }) => {
     const { analysisId } = payload;
-    const service = createServiceClient();
-    await service
-      .from("analyses")
-      .update({ status: "failed" })
-      .eq("id", analysisId)
-      .in("status", ["queued", "running"]);
+    try {
+      const code = codeFromSerializedError(error);
+      logFailure("Analysis failed after all retries", analysisId, code, error);
+
+      const service = createServiceClient();
+      const finalized = await finalizeFailure(service, analysisId, code);
+
+      // Only apologize if this call actually made the analysis 'failed'. A no-op
+      // means the row already settled (done / insufficient_evidence) and the user
+      // has their real email — a spurious failure notice would contradict it.
+      if (!finalized) return;
+
+      const { data: analysis } = await service
+        .from("analyses")
+        .select("user_id")
+        .eq("id", analysisId)
+        .maybeSingle();
+
+      if (analysis?.user_id) {
+        await notifyReportReady(service, analysis.user_id, {
+          status: "failed",
+          analysisId,
+        });
+      }
+    } catch (e) {
+      logger.error("onFailure handler threw", {
+        analysisId,
+        detail: e instanceof Error ? e.message.slice(0, 300) : "non-error thrown",
+      });
+    }
+  },
+
+  /**
+   * A cancelled run never reaches onFailure, so it would otherwise sit in
+   * 'running' forever. No email: the cancellation was deliberate.
+   *
+   * Caveat: Trigger.dev only calls this while the run is actively executing — a
+   * run cancelled while still queued is not finalized here.
+   */
+  onCancel: async ({ payload }) => {
+    const { analysisId } = payload as RunAnalysisPayload;
+    try {
+      await finalizeFailure(createServiceClient(), analysisId, "cancelled");
+    } catch (e) {
+      logger.error("onCancel handler threw", {
+        analysisId,
+        detail: e instanceof Error ? e.message.slice(0, 300) : "non-error thrown",
+      });
+    }
   },
 });

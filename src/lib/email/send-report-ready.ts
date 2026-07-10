@@ -5,10 +5,15 @@ import { absoluteUrl } from "@/lib/site";
  * "Your verdict is ready" transactional email (ARCHITECTURE.md Stage E), sent via
  * the Resend REST API with `fetch` — no SDK dependency. English copy only.
  *
- * Two variants: a finished verdict (score + summary + link) and the
- * insufficient-evidence outcome (why, plus that the free credit was not used).
- * This function returns a result and never throws — the caller in the analysis
- * job must treat email as a best-effort side-effect that cannot fail the run.
+ * Three variants: a finished verdict (score + summary + link), the
+ * insufficient-evidence outcome (why, plus that the free credit was not used),
+ * and an apologetic failure notice (ARCHITECTURE.md §5). This function returns a
+ * result and never throws — the caller in the analysis job must treat email as a
+ * best-effort side-effect that cannot fail the run.
+ *
+ * The failed variant deliberately carries no `failure_code` and no error detail:
+ * a transactional email is not the place to explain an internal fault, and the
+ * report page already shows the code-specific copy.
  *
  * HTML is hand-written table-based markup (not the app's Tailwind/CSS-variable
  * system) — email clients (Outlook in particular) don't support flexbox, grid,
@@ -31,6 +36,11 @@ type ReportReadyParams =
       analysisId: string;
       status: "insufficient_evidence";
       summary: string;
+    }
+  | {
+      to: string;
+      analysisId: string;
+      status: "failed";
     };
 
 type SendResult = { ok: true; id: string | null } | { ok: false; error: string };
@@ -175,6 +185,42 @@ function buildContent(params: ReportReadyParams): {
     return {
       subject,
       html: emailShell(`Your idea scored ${params.score}/100 — ${VERDICT_WORD[params.verdict]}`, body),
+      text,
+    };
+  }
+
+  if (params.status === "failed") {
+    const subject = "We couldn't finish your analysis — your free analysis is safe";
+    const text = [
+      `Something went wrong on our side while analyzing your idea, and we couldn't finish it.`,
+      ``,
+      `Your free analysis has NOT been used. You can start it again here:`,
+      url,
+      ``,
+      `Sorry about this — we've logged the error and are looking into it.`,
+    ].join("\n");
+
+    const body = `
+      <h1 style="margin:0 0 16px; font-size:24px; font-weight:700; color:#1C1917; letter-spacing:-0.02em;">
+        We couldn't finish your analysis
+      </h1>
+      <p style="margin:0 0 16px; font-size:15px; line-height:1.65; color:#44403C;">
+        Something went wrong on our side while we were analyzing your idea, so we stopped rather than give you a verdict we don't trust.
+      </p>
+      <p style="margin:0 0 28px; font-size:15px; line-height:1.65; color:#1C1917;">
+        <strong>Your free analysis hasn't been used.</strong> Start it again &mdash; it won't cost you a credit.
+      </p>
+      ${ctaButton(url, "Try again")}
+      <p style="margin:20px 0 0; font-size:13px; line-height:1.5; color:#78716C;">
+        We've logged the error and are looking into it. Sorry for the detour.
+      </p>`;
+
+    return {
+      subject,
+      html: emailShell(
+        "We couldn't finish your analysis — your free analysis is still available",
+        body,
+      ),
       text,
     };
   }

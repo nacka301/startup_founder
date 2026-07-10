@@ -6,8 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { MIN_IDEA_LENGTH } from "@/lib/analyses";
 import { createAnalysis } from "./actions";
 
-export function NewAnalysisForm() {
-  const [idea, setIdea] = useState("");
+export function NewAnalysisForm({ defaultIdea = "" }: { defaultIdea?: string }) {
+  const [idea, setIdea] = useState(defaultIdea);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

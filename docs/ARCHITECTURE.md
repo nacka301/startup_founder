@@ -55,9 +55,12 @@ Report page renders from stored JSON (single renderer for free/paid/shared views
 
 ## 5. Error handling
 
-- Job fails mid-way → Trigger.dev retry (max 2); still failing → status `failed`, credit refunded, apologetic email, admin sees it in mini admin.
+- Every pipeline stage is wrapped so a thrown error becomes an `AnalysisFailure` carrying a machine-safe `failure_code`. The error still rethrows, so Trigger.dev retries (max 2) and the checkpointed evidence is reused.
+- Job fails mid-way → still failing after retries → `onFailure` sets status `failed` + `failure_code`, sends an apologetic email (best-effort; a send failure can never fail the run), admin sees it in mini admin. Credit needs no refund: it's consumed only as the final write alongside the `done` flip, so a failed run never spends it.
+- The run enforces its own 600s deadline between stages, well under the 900s `maxDuration`. This matters because Trigger.dev does **not** call `onFailure` when `maxDuration` is exceeded — the in-run deadline throws a normal error instead, so the analysis is always finalized rather than left stuck in `running`. A cancelled run is finalized by `onCancel`.
 - Reddit blocked/rate-limited → fall back to general web search; if evidence still under gate → insufficient-evidence path.
 - LLM returns invalid JSON → re-ask once with error message; then fail job.
+- `failed` (an error) and `insufficient_evidence` (a valid outcome) are distinct states. The user is never shown raw exception text — the code maps to friendly copy on the report page.
 
 ## 6. Security & limits
 

@@ -33,7 +33,13 @@ function Blocked({
   );
 }
 
-export default async function NewAnalysisPage() {
+export default async function NewAnalysisPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -86,6 +92,23 @@ export default async function NewAnalysisPage() {
     );
   }
 
+  // Retry affordance: `?from=<id>` prefills the idea from a failed analysis so the
+  // user doesn't retype it. Read through the user's RLS-scoped client and scoped to
+  // their own failed rows, so `from` can never surface someone else's idea; passing
+  // the id (not the text) keeps the idea out of browser history and referrers. Any
+  // miss — bad id, wrong owner, wrong status — silently falls back to a blank form.
+  let defaultIdea = "";
+  if (from) {
+    const { data: previous } = await supabase
+      .from("analyses")
+      .select("idea_text")
+      .eq("id", from)
+      .eq("user_id", user.id)
+      .eq("status", "failed")
+      .maybeSingle();
+    defaultIdea = (previous?.idea_text as string | null) ?? "";
+  }
+
   return (
     <main className={WRAPPER}>
       <WizardStepper current={1} />
@@ -94,11 +117,12 @@ export default async function NewAnalysisPage() {
           Describe your idea
         </h1>
         <p className="text-muted-foreground">
-          Tell us what you&apos;re thinking of building. Next, we&apos;ll ask a few
-          questions to make the verdict as accurate as possible.
+          {defaultIdea
+            ? "We've brought your idea across from the analysis that failed. Edit it if you like, then run it again."
+            : "Tell us what you're thinking of building. Next, we'll ask a few questions to make the verdict as accurate as possible."}
         </p>
       </header>
-      <NewAnalysisForm />
+      <NewAnalysisForm defaultIdea={defaultIdea} />
     </main>
   );
 }

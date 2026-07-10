@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_META, type AnalysisStatus } from "@/lib/analyses";
+import { parseFailureCode } from "@/lib/failure";
 import { parseDoneReport } from "@/lib/report";
+import { AnalysisFailed } from "@/components/report/analysis-failed";
 import { ReportView } from "@/components/report/report-view";
 import { PlanSection } from "@/components/report/plan-section";
 import { LockedPlan } from "@/components/report/locked-plan";
@@ -35,7 +37,7 @@ export default async function AnalysisPage({
   // RLS scopes this to the owner; anyone else (or a bad id) gets null → 404.
   const { data: analysis } = await supabase
     .from("analyses")
-    .select("id, status, idea_text, share_enabled, share_token")
+    .select("id, status, idea_text, share_enabled, share_token, failure_code")
     .eq("id", id)
     .maybeSingle();
 
@@ -125,36 +127,17 @@ export default async function AnalysisPage({
     );
   }
 
-  // Failed — graceful error state, never a crash.
+  // Failed — graceful error state, never a crash. `parseFailureCode` validates the
+  // column on read, so a NULL/legacy/unrecognized value degrades to the generic
+  // message instead of throwing. The user never sees the code or the real error.
   if (status === "failed") {
     return (
       <main className={WRAPPER}>
-        <div className="flex flex-col items-start gap-4">
-          <Badge variant="destructive">{STATUS_META.failed.label}</Badge>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Something went wrong
-            </h1>
-            <p className="text-muted-foreground">
-              We hit an error while analyzing this idea and couldn&apos;t finish.
-              Your free analysis wasn&apos;t used — please start a new one.
-            </p>
-          </div>
-          <p className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-            {analysis.idea_text}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/analyses/new" className={buttonVariants()}>
-              Start a new analysis
-            </Link>
-            <Link
-              href="/dashboard"
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Back to dashboard
-            </Link>
-          </div>
-        </div>
+        <AnalysisFailed
+          ideaText={analysis.idea_text}
+          code={parseFailureCode(analysis.failure_code)}
+          retryHref={`/analyses/new?from=${id}`}
+        />
       </main>
     );
   }
