@@ -40,3 +40,28 @@ export const STATUS_META: Record<
   insufficient_evidence: { label: "Not enough evidence", badge: "outline" },
   failed: { label: "Failed", badge: "destructive" },
 };
+
+const RELATIVE_TIME_FORMAT = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+/**
+ * Dashboard row timestamp ("2 days ago", "just now"). Uses the native
+ * Intl.RelativeTimeFormat rather than a date library — no new dependency for
+ * one formatting call. Falls back to an absolute date past ~30 days, where a
+ * relative label stops being useful.
+ */
+export function formatRelativeTime(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const diffMs = then.getTime() - now.getTime();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
+
+  if (Math.abs(diffSeconds) < 60) return "just now";
+  if (Math.abs(diffMinutes) < 60) return RELATIVE_TIME_FORMAT.format(diffMinutes, "minute");
+  if (Math.abs(diffHours) < 24) return RELATIVE_TIME_FORMAT.format(diffHours, "hour");
+  if (Math.abs(diffDays) < 7) return RELATIVE_TIME_FORMAT.format(diffDays, "day");
+  if (Math.abs(diffDays) < 30) return RELATIVE_TIME_FORMAT.format(Math.round(diffDays / 7), "week");
+
+  return then.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
