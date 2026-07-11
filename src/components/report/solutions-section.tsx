@@ -7,9 +7,9 @@ import { Reveal } from "@/components/motion/reveal";
  */
 export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) {
   return (
-    <Reveal as="section" className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold tracking-tight">
-        Possible solutions & MVP shape
+    <Reveal as="section" className="flex flex-col gap-5">
+      <h2 className="text-[21px] font-semibold tracking-[-0.015em]">
+        Possible solutions &amp; MVP shape
       </h2>
       <div className="flex flex-col gap-2">
         <h3 className="text-[15px] font-medium text-foreground">
@@ -20,7 +20,7 @@ export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) 
         </p>
       </div>
       {solutions.possible_solutions.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           <h3 className="text-[15px] font-medium text-foreground">
             Angles worth considering
           </h3>
@@ -28,9 +28,9 @@ export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) 
             {solutions.possible_solutions.map((s, i) => (
               <li
                 key={i}
-                className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
+                className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground"
               >
-                <span className="select-none text-primary">•</span>
+                <span className="select-none text-[#818CF8]">•</span>
                 <span>{s}</span>
               </li>
             ))}

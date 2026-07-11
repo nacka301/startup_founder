@@ -15,17 +15,17 @@ const PREVIEW_PER_TOPIC = 3;
 function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: number }) {
   return (
     <Reveal index={index}>
-      <figure className="card-hover flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3">
-        <blockquote className="font-serif text-[15px] italic leading-relaxed text-foreground">
+      <figure className="glass backdrop-blur-[14px] card-hover flex flex-col gap-2.5 rounded-[14px] px-[18px] py-4">
+        <blockquote className="font-serif text-base italic leading-relaxed text-[#E5E7EB]">
           &ldquo;{item.quote}&rdquo;
         </blockquote>
-        <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
+        <figcaption className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[13px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <MessageSquare className="size-3.5" aria-hidden />
             {sourceLabel(item.url)}
           </span>
           {item.similar_count > 1 && (
-            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium">
+            <span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-xs font-medium">
               {item.similar_count} similar mentions
             </span>
           )}
@@ -33,7 +33,7 @@ function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: number 
             href={item.url}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
+            className="inline-flex items-center gap-1 text-[#A5B4FC] hover:underline"
           >
             View source
             <ExternalLink className="size-3.5" aria-hidden />
@@ -62,8 +62,8 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceItem[] }) {
 
   return (
     <section className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold tracking-tight">Evidence</h2>
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-[21px] font-semibold tracking-[-0.015em]">Evidence</h2>
         <p className="text-sm text-muted-foreground">
           Real complaints and discussions we found online — {evidence.length}{" "}
           {evidence.length === 1 ? "item" : "items"} across {totalMentions}{" "}
@@ -76,8 +76,8 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceItem[] }) {
           const preview = items.slice(0, PREVIEW_PER_TOPIC);
           const rest = items.slice(PREVIEW_PER_TOPIC);
           return (
-            <div key={topic} className="flex flex-col gap-2">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div key={topic} className="flex flex-col gap-3">
+              <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[#8A8F9A]">
                 {topic}
               </h3>
               <div className="flex flex-col gap-2">

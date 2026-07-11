@@ -16,10 +16,10 @@ import { DiscardButton } from "./discard-button";
 import { ShareControls } from "./share-controls";
 
 const WRAPPER =
-  "mx-auto flex min-h-screen max-w-[720px] flex-col gap-8 px-6 py-16";
+  "mx-auto flex min-h-screen max-w-[760px] flex-col gap-8 px-6 pt-9 pb-[160px]";
 // Wizard steps (clarify, running) share the narrower editorial width used by
 // the rest of the wizard (analyses/new); the finished report keeps WRAPPER's
-// wider 720px for its glass cards/tabs.
+// wider 760px for its glass cards/tabs (README §5).
 const WIZARD_WRAPPER =
   "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-11 pb-[140px]";
 const BACK_TO_DASHBOARD =
@@ -268,22 +268,17 @@ export default async function AnalysisPage({
 
   return (
     <main className={WRAPPER}>
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-[13px] uppercase tracking-wide text-muted-foreground">
-            Your verdict
-          </span>
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {analysis.idea_text}
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Dashboard
-        </Link>
-      </header>
+      <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
+        ← Back to dashboard
+      </Link>
+      <div className="-mt-4 flex flex-col gap-1">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
+          The idea
+        </span>
+        <p className="text-[13px] leading-[1.6] text-muted-foreground line-clamp-2">
+          {analysis.idea_text}
+        </p>
+      </div>
 
       <ReportView
         score={parsed.score}

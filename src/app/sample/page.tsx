@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 const WRAPPER =
-  "mx-auto flex min-h-screen max-w-[720px] flex-col gap-8 px-6 py-16";
+  "mx-auto flex min-h-screen max-w-[760px] flex-col gap-8 px-6 pt-9 pb-[160px]";
 
 /**
  * Public, static sample report — the destination for the landing's "See a
@@ -42,23 +42,21 @@ export default async function SamplePage({
 
   return (
     <main className={WRAPPER}>
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-[13px] uppercase tracking-wide text-muted-foreground">
-            Sample verdict{isPaid ? " · full report" : ""}
-          </span>
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {SAMPLE_IDEA}
-          </p>
-        </div>
-        <Link
-          href="/"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back
-        </Link>
-      </header>
+      <Link
+        href="/"
+        className="mb-1 inline-flex w-fit items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden />
+        Back
+      </Link>
+      <div className="-mt-4 flex flex-col gap-1">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
+          The idea{isPaid ? " · sample verdict, full report" : " · sample verdict"}
+        </span>
+        <p className="text-[13px] leading-[1.6] text-muted-foreground line-clamp-2">
+          {SAMPLE_IDEA}
+        </p>
+      </div>
 
       <ReportView
         score={SAMPLE_SCORE}

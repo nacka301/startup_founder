@@ -26,9 +26,9 @@ export function VerdictHeader({
 
   return (
     <motion.section
-      className="relative overflow-hidden rounded-xl border border-border bg-card p-6 sm:p-8"
+      className="glass-strong backdrop-blur-[18px] relative overflow-hidden rounded-[20px] p-6 sm:p-8"
       style={{
-        boxShadow: `0 0 24px ${v.color}20, 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25)`,
+        boxShadow: `0 0 34px ${v.color}24, 0 20px 50px rgba(0, 0, 0, 0.45)`,
       }}
       initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -38,12 +38,17 @@ export function VerdictHeader({
         <ScoreRing score={score} verdict={verdict} size={168} />
         <div className="flex flex-col items-center gap-3 text-center sm:items-start sm:text-left">
           <span
-            className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold"
+            className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold"
             style={{ color: v.color, backgroundColor: `${v.color}1a` }}
           >
-            {v.label}
+            <span
+              aria-hidden
+              className="size-2 rounded-full"
+              style={{ backgroundColor: v.color, boxShadow: `0 0 8px ${v.color}` }}
+            />
+            {v.label} · {v.blurb}
           </span>
-          <p className="text-[15px] leading-relaxed text-foreground">{summary}</p>
+          <p className="text-base leading-relaxed text-[#E5E7EB]">{summary}</p>
         </div>
       </div>
     </motion.section>

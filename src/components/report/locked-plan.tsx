@@ -24,11 +24,11 @@ const FILLER_TASK =
 export function LockedPlan() {
   return (
     <Reveal as="section" aria-labelledby="locked-plan-heading" className="flex flex-col gap-4">
-      <h2 id="locked-plan-heading" className="text-xl font-semibold tracking-tight">
+      <h2 id="locked-plan-heading" className="text-[21px] font-semibold tracking-[-0.015em]">
         Realization plan
       </h2>
 
-      <div className="relative overflow-hidden rounded-xl border border-border">
+      <div className="relative overflow-hidden rounded-[16px] border border-border">
         {/* Blurred, non-interactive, screen-reader-hidden placeholder. */}
         <div
           aria-hidden
@@ -44,12 +44,9 @@ export function LockedPlan() {
             </div>
             <ol className="flex flex-col gap-3">
               {FILLER_WEEKS.map((w) => (
-                <li
-                  key={w.week}
-                  className="rounded-xl border border-border bg-card px-4 py-3"
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[13px] font-semibold uppercase tracking-wide text-primary">
+                <li key={w.week} className="glass backdrop-blur-[14px] rounded-[14px] px-[18px] py-4">
+                  <div className="flex items-baseline gap-2.5">
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                       Week {w.week}
                     </span>
                     <span className="text-[15px] font-medium">{w.focus}</span>
@@ -84,6 +81,9 @@ export function LockedPlan() {
           <Link href="/dashboard" className={buttonVariants({ size: "lg" })}>
             Upgrade to unlock your realization plan
           </Link>
+          <span className="font-mono text-xs text-[#6B7280]">
+            Currently viewing: Free tier
+          </span>
         </div>
       </div>
     </Reveal>

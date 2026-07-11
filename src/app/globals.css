@@ -124,18 +124,20 @@
       radial-gradient(520px 360px at 94% 8%, rgba(167, 139, 250, 0.1), transparent 72%);
   }
 
-  /* Glassmorphism surface (v2 report/criteria/evidence cards, sticky header). */
+  /* Glassmorphism surface (v2 report/criteria/evidence cards, sticky header).
+     Blur is applied separately via Tailwind's own backdrop-blur-[…] utility
+     in JSX (not declared here): Lightning CSS's vendor-prefix optimizer
+     collapses a hand-written backdrop-filter + -webkit-backdrop-filter pair
+     down to just the prefixed line, silently dropping the standard property
+     from the compiled output. Tailwind's native backdrop-blur-* utility does
+     not hit that path and compiles correctly. */
   .glass {
     background: rgba(255, 255, 255, 0.045);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
   }
   .glass-strong {
     background: rgba(255, 255, 255, 0.045);
     border: 1px solid rgba(255, 255, 255, 0.13);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
   }
 
   /* Cyan CTA glow (hero/report primary buttons). */

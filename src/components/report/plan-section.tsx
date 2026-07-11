@@ -12,7 +12,9 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold tracking-tight">Realization plan</h2>
+        <h2 className="text-[21px] font-semibold tracking-[-0.015em]">
+          Realization plan
+        </h2>
         <p className="text-sm text-muted-foreground">
           A concrete path from today to a launched MVP, tailored to your time and
           budget.
@@ -29,9 +31,9 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
         <ol className="flex flex-col gap-3">
           {plan.weekly_steps.map((step, i) => (
             <Reveal key={step.week} as="li" index={i}>
-              <div className="card-hover rounded-xl border border-border bg-card px-4 py-3">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-semibold uppercase tracking-wide text-primary">
+              <div className="glass backdrop-blur-[14px] card-hover rounded-[14px] px-[18px] py-4">
+                <div className="flex items-baseline gap-2.5">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                     Week {step.week}
                   </span>
                   <span className="text-[15px] font-medium text-foreground">
@@ -73,7 +75,7 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
               Where they are
             </span>
             <ul className="flex flex-col gap-1">
@@ -85,7 +87,7 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
             </ul>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
               How to reach them
             </span>
             <ul className="flex flex-col gap-1">
