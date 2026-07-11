@@ -91,7 +91,7 @@ export const VERDICT_DISPLAY: Record<
   { label: string; color: string; blurb: string }
 > = {
   go: { label: "GO", color: "#22C55E", blurb: "Worth pursuing" },
-  caution: { label: "CAUTION", color: "#F59E0B", blurb: "Real, with open questions" },
+  caution: { label: "CAUTION", color: "#FBBF24", blurb: "Real, with open questions" },
   stop: { label: "STOP", color: "#EF4444", blurb: "The evidence is against it" },
 };
 
