@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { STATUS_META, type AnalysisStatus } from "@/lib/analyses";
+import type { AnalysisStatus } from "@/lib/analyses";
 import { parseFailureCode } from "@/lib/failure";
 import { parseDoneReport } from "@/lib/report";
 import { AnalysisFailed } from "@/components/report/analysis-failed";
@@ -18,6 +17,13 @@ import { ShareControls } from "./share-controls";
 
 const WRAPPER =
   "mx-auto flex min-h-screen max-w-[720px] flex-col gap-8 px-6 py-16";
+// Wizard steps (clarify, running) share the narrower editorial width used by
+// the rest of the wizard (analyses/new); the finished report keeps WRAPPER's
+// wider 720px for its glass cards/tabs.
+const WIZARD_WRAPPER =
+  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-11 pb-[140px]";
+const BACK_TO_DASHBOARD =
+  "mb-7 inline-flex w-fit items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground";
 
 export default async function AnalysisPage({
   params,
@@ -62,10 +68,13 @@ export default async function AnalysisPage({
     // dead form — let the user discard it so their one active slot frees up.
     if (list.length === 0) {
       return (
-        <main className={WRAPPER}>
+        <main className={WIZARD_WRAPPER}>
+          <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
+            ← Back to dashboard
+          </Link>
           <div className="flex flex-col items-start gap-4">
             <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight">
+              <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
                 This one didn&apos;t finish setting up
               </h1>
               <p className="text-muted-foreground">
@@ -80,40 +89,51 @@ export default async function AnalysisPage({
     }
 
     return (
-      <main className={WRAPPER}>
+      <main className={WIZARD_WRAPPER}>
+        <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
+          ← Back to dashboard
+        </Link>
         <WizardStepper current={2} />
-        <header className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            A few quick questions
+        <header className="mb-6 flex flex-col gap-2.5">
+          <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
+            A few questions to sharpen it
           </h1>
-          <p className="text-muted-foreground">
-            Your answers sharpen the verdict. Pick the closest option for each —
-            there are no wrong answers.
+          <p className="text-[15px] text-muted-foreground">
+            Not sure on one? &ldquo;I don&apos;t know&rdquo; is a perfectly good
+            answer — we account for it.
           </p>
         </header>
         <ClarifyForm analysisId={id} questions={list} />
-        <DiscardButton analysisId={id} />
+        <div className="mt-4">
+          <DiscardButton analysisId={id} />
+        </div>
       </main>
     );
   }
 
-  // Still working — confirmation / progress (not a broken page).
+  // Still working — confirmation / progress (not a broken page). No fake
+  // stage-by-stage progress bar here — the pipeline doesn't expose granular
+  // stage state (only queued/running), so the copy stays honest about that.
   if (status === "queued" || status === "running") {
-    const meta = STATUS_META[status];
     return (
-      <main className={WRAPPER}>
+      <main className={WIZARD_WRAPPER}>
+        <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
+          ← Back to dashboard
+        </Link>
         <WizardStepper current={3} />
-        <div className="flex flex-col items-start gap-4">
-          <Badge variant={meta.badge}>{meta.label}</Badge>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-semibold tracking-tight">We&apos;re on it</h1>
-            <p className="text-muted-foreground">
-              {status === "queued"
-                ? "Thanks — your answers are in. We're researching your idea now, which takes a few minutes. We'll email you the moment your verdict is ready."
-                : "We're reading through the evidence and scoring your idea. This takes a few minutes — we'll email you when it's ready."}
-            </p>
-          </div>
-          <p className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <div className="flex flex-col items-start gap-5 pt-3">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-cyan">
+            Analyzing
+          </span>
+          <h1 className="max-w-[480px] text-[30px] font-semibold leading-[1.2] tracking-[-0.03em]">
+            Reading what people actually say about this problem.
+          </h1>
+          <p className="text-[15px] leading-[1.6] text-muted-foreground">
+            {status === "queued"
+              ? "Thanks — your answers are in. We're researching your idea now, which usually takes 5–10 minutes. We'll email you the moment your verdict is ready — you can safely leave this page."
+              : "We're reading through the evidence and scoring your idea. This usually takes 5–10 minutes — we'll email you when it's ready. You can safely leave this page."}
+          </p>
+          <p className="w-full rounded-[14px] border border-border bg-card px-4 py-3.5 text-sm text-muted-foreground">
             {analysis.idea_text}
           </p>
           <Link

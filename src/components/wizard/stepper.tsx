@@ -27,7 +27,7 @@ export function WizardStepper({ current }: { current: 1 | 2 | 3 }) {
                   "flex size-[26px] shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold transition-colors duration-200",
                   active && "bg-primary text-primary-foreground shadow-glow",
                   done && !active && "bg-primary/15 text-primary",
-                  !active && !done && "border border-border bg-transparent text-muted-foreground",
+                  !active && !done && "border border-border bg-white/[0.05] text-muted-foreground",
                 )}
               >
                 {done ? <Check className="size-3.5" aria-hidden /> : step.n}

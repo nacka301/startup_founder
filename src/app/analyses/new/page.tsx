@@ -7,7 +7,9 @@ import { WizardStepper } from "@/components/wizard/stepper";
 import { NewAnalysisForm } from "./new-analysis-form";
 
 const WRAPPER =
-  "mx-auto flex min-h-screen max-w-[720px] flex-col gap-8 px-6 py-16";
+  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-11 pb-[140px]";
+const BACK_LINK =
+  "mb-7 inline-flex w-fit items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground";
 
 function Blocked({
   title,
@@ -23,7 +25,7 @@ function Blocked({
   return (
     <div className="flex flex-col items-start gap-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-[30px] font-semibold tracking-[-0.025em]">{title}</h1>
         <p className="text-muted-foreground">{body}</p>
       </div>
       <Link href={href} className={buttonVariants({ variant: "outline" })}>
@@ -62,6 +64,9 @@ export default async function NewAnalysisPage({
   if (active) {
     return (
       <main className={WRAPPER}>
+        <Link href="/dashboard" className={BACK_LINK}>
+          ← Back to dashboard
+        </Link>
         <Blocked
           title="You've already got one on the go"
           body="You can run one analysis at a time. Pick up where you left off, then start a new one."
@@ -82,6 +87,9 @@ export default async function NewAnalysisPage({
   if (profile?.plan === "free" && profile.free_credit_used) {
     return (
       <main className={WRAPPER}>
+        <Link href="/dashboard" className={BACK_LINK}>
+          ← Back to dashboard
+        </Link>
         <Blocked
           title="You've used your free analysis"
           body="Your free verdict has been used. Upgrading unlocks more analyses and the full realization plan."
@@ -111,15 +119,18 @@ export default async function NewAnalysisPage({
 
   return (
     <main className={WRAPPER}>
+      <Link href="/dashboard" className={BACK_LINK}>
+        ← Back to dashboard
+      </Link>
       <WizardStepper current={1} />
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Describe your idea
+      <header className="mb-6 flex flex-col gap-2.5">
+        <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
+          What&apos;s your idea?
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-[15px] leading-[1.6] text-muted-foreground">
           {defaultIdea
             ? "We've brought your idea across from the analysis that failed. Edit it if you like, then run it again."
-            : "Tell us what you're thinking of building. Next, we'll ask a few questions to make the verdict as accurate as possible."}
+            : "Describe the problem you want to solve and who has it. The more specific you are, the sharper the verdict — a sentence or two beats a one-liner."}
         </p>
       </header>
       <NewAnalysisForm defaultIdea={defaultIdea} />
