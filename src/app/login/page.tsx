@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { verifyCode } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
+// v2 editorial auth tokens (indigo app-flow accent, kept distinct from the
+// cyan marketing CTA). Shared between the email and code steps.
+const labelClass =
+  "font-mono text-[12px] font-semibold uppercase tracking-[0.1em] text-[#6B7280]";
+// text-[15px] is doubled with md:text-[15px] so it also overrides the base
+// Input's `md:text-sm` (which would otherwise win at ≥md and shrink the field).
+const inputClass =
+  "h-auto rounded-[12px] border-input bg-card px-4 py-3.5 text-[15px] md:text-[15px]";
+const submitClass = "h-12 w-full rounded-[12px] text-[15px]";
 
 type SendStatus = "idle" | "sending" | "sent" | "error";
 type VerifyStatus = "idle" | "verifying" | "error";
@@ -102,112 +107,160 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="shadow-elevated w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Sign in to BuildWorthy</CardTitle>
-          <CardDescription>
-            {sendStatus === "sent"
-              ? "We sent you a sign-in link and a 6-digit code."
-              : "Enter your email and we'll send you a magic link and a code — no password needed."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sendStatus === "sent" ? (
-            <div className="flex flex-col gap-5">
-              <p className="text-sm text-muted-foreground">
-                Check your inbox for{" "}
-                <span className="font-medium text-foreground">{email}</span>.
-                Click the link, or enter the 6-digit code below — whichever
-                works.
+    <main className="animate-fade-in-up mx-auto w-full max-w-[400px] px-6 pt-16 pb-[140px]">
+      <Link
+        href="/"
+        className="mb-8 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden />
+        Back
+      </Link>
+
+      <div className="mb-7 flex items-center gap-2.5">
+        <span
+          aria-hidden
+          className="size-[26px] shrink-0 rounded-lg"
+          style={{
+            background: "linear-gradient(135deg,#22D3EE,#A78BFA)",
+            boxShadow: "0 0 18px rgba(34,211,238,0.45)",
+          }}
+        />
+        <span className="text-[17px] font-semibold tracking-[-0.02em]">
+          BuildWorthy
+        </span>
+      </div>
+
+      {sendStatus === "sent" ? (
+        <div>
+          <span
+            aria-hidden
+            className="mb-5 flex size-12 items-center justify-center rounded-[12px] text-[#A5B4FC]"
+            style={{ backgroundColor: "rgba(99,102,241,0.14)" }}
+          >
+            <Mail className="size-[22px]" />
+          </span>
+          <h1 className="mb-2.5 text-[28px] font-semibold tracking-[-0.025em]">
+            Check your email
+          </h1>
+          <p className="mb-6 text-[15px] leading-[1.6] text-muted-foreground">
+            We sent a magic link and a 6-digit code to{" "}
+            <span className="text-foreground">{email}</span>. Click the link, or
+            enter the code below.
+          </p>
+
+          <form onSubmit={handleVerify} className="flex flex-col gap-2">
+            <Label htmlFor="code" className={labelClass}>
+              6-digit code
+            </Label>
+            <Input
+              id="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={6}
+              placeholder="000000"
+              value={code}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              aria-invalid={verifyError ? true : undefined}
+              aria-describedby={verifyError ? "code-error" : undefined}
+              className={`${inputClass} text-center font-mono text-[22px] font-semibold tracking-[0.4em] md:text-[22px]`}
+            />
+            {verifyError && (
+              <p
+                id="code-error"
+                role="alert"
+                aria-live="polite"
+                className="text-sm text-destructive"
+              >
+                {verifyError}
               </p>
-
-              <form onSubmit={handleVerify} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="code">6-digit code</Label>
-                  <Input
-                    id="code"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={code}
-                    onChange={(e) =>
-                      setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    aria-invalid={verifyError ? true : undefined}
-                    aria-describedby={verifyError ? "code-error" : undefined}
-                  />
-                </div>
-                {verifyError && (
-                  <p
-                    id="code-error"
-                    role="alert"
-                    aria-live="polite"
-                    className="text-sm text-destructive"
-                  >
-                    {verifyError}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  disabled={code.length !== 6 || verifyStatus === "verifying"}
-                >
-                  {verifyStatus === "verifying" ? "Verifying…" : "Verify code"}
-                </Button>
-              </form>
-
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  onClick={sendMagicLink}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Resend email
-                </button>
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  Use a different email
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSend} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  aria-invalid={sendError ? true : undefined}
-                  aria-describedby={sendError ? "login-error" : undefined}
-                />
-              </div>
-              {sendError && (
-                <p
-                  id="login-error"
-                  role="alert"
-                  aria-live="polite"
-                  className="text-sm text-destructive"
-                >
-                  {sendError}
-                </p>
+            )}
+            <Button
+              type="submit"
+              className={`mt-3 ${submitClass}`}
+              disabled={code.length !== 6 || verifyStatus === "verifying"}
+            >
+              {verifyStatus === "verifying" ? "Verifying…" : "Continue"}
+              {verifyStatus !== "verifying" && (
+                <ArrowRight className="size-4" aria-hidden />
               )}
-              <Button type="submit" disabled={sendStatus === "sending"}>
-                {sendStatus === "sending" ? "Sending…" : "Send magic link"}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+            </Button>
+          </form>
+
+          <div className="mt-[18px] flex justify-center gap-4 text-[13px]">
+            <button
+              type="button"
+              onClick={reset}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Use a different email
+            </button>
+            <span className="text-[#374151]">·</span>
+            <button
+              type="button"
+              onClick={sendMagicLink}
+              className="text-primary transition-colors hover:text-[#A5B4FC]"
+            >
+              Resend code
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <h1 className="mb-2.5 text-[28px] font-semibold tracking-[-0.025em]">
+            Sign in or create your account
+          </h1>
+          <p className="mb-6 text-[15px] leading-[1.6] text-muted-foreground">
+            Enter your email and we&apos;ll send you a magic link and a 6-digit
+            code. No password to remember.
+          </p>
+
+          <form onSubmit={handleSend} className="flex flex-col gap-2">
+            <Label htmlFor="email" className={labelClass}>
+              Email address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              required
+              placeholder="you@example.com"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={sendError ? true : undefined}
+              aria-describedby={sendError ? "login-error" : undefined}
+              className={inputClass}
+            />
+            {sendError && (
+              <p
+                id="login-error"
+                role="alert"
+                aria-live="polite"
+                className="text-sm text-destructive"
+              >
+                {sendError}
+              </p>
+            )}
+            <Button
+              type="submit"
+              variant="gradient"
+              className={`mt-3 ${submitClass}`}
+              disabled={sendStatus === "sending"}
+            >
+              {sendStatus === "sending" ? "Sending…" : "Send my magic link"}
+              {sendStatus !== "sending" && (
+                <ArrowRight className="size-4" aria-hidden />
+              )}
+            </Button>
+          </form>
+
+          <p className="mt-4 text-center text-[12.5px] leading-[1.5] text-muted-foreground">
+            Research assistance for your idea — not guaranteed business advice.
+          </p>
+        </div>
+      )}
     </main>
   );
 }
