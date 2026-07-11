@@ -119,11 +119,11 @@ export function OnboardingForm() {
                 aria-pressed={selected}
                 onClick={() => toggleSkill(option.value)}
                 className={cn(
-                  "flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95",
+                  "card-hover flex min-h-11 items-center rounded-[12px] border px-3.5 text-sm",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   selected
-                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                    : "border-border bg-card text-foreground hover:bg-muted/50",
+                    ? "border-primary bg-primary/10 ring-1 ring-primary shadow-glow"
+                    : "border-border bg-card text-foreground",
                 )}
               >
                 {option.label}
@@ -138,11 +138,11 @@ export function OnboardingForm() {
               setSkills([]);
             }}
             className={cn(
-              "flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95",
+              "card-hover flex min-h-11 items-center rounded-[12px] border px-3.5 text-sm",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               skillsPreferNot
-                ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                : "border-border bg-card text-muted-foreground hover:bg-muted/50",
+                ? "border-primary bg-primary/10 ring-1 ring-primary shadow-glow"
+                : "border-border bg-card text-muted-foreground",
             )}
           >
             Prefer not to say
@@ -200,10 +200,14 @@ export function OnboardingForm() {
       )}
 
       <div className="flex flex-col gap-3">
-        <Button type="submit" size="lg" disabled={!complete || isPending}>
+        <Button
+          type="submit"
+          disabled={!complete || isPending}
+          className="h-[52px] w-full rounded-[12px] text-[15px]"
+        >
           {isPending ? "Saving…" : "Continue to dashboard"}
         </Button>
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-center text-[13px] text-muted-foreground">
           You only fill this out once. Every question is optional — choose
           &ldquo;prefer not to say&rdquo; for anything you&apos;d rather skip.
         </p>
