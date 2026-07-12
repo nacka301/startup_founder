@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
-import type { AnalysisStatus } from "@/lib/analyses";
+import { STUCK_AFTER_MS, type AnalysisStatus } from "@/lib/analyses";
 import { parseFailureCode } from "@/lib/failure";
 import { parseDoneReport } from "@/lib/report";
 import { AnalysisFailed } from "@/components/report/analysis-failed";
@@ -48,7 +48,9 @@ export default async function AnalysisPage({
   //   - a row                → render by status below.
   const { data: analysis, error: analysisError } = await supabase
     .from("analyses")
-    .select("id, status, idea_text, share_enabled, share_token, failure_code")
+    .select(
+      "id, status, idea_text, share_enabled, share_token, failure_code, updated_at",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -148,6 +150,13 @@ export default async function AnalysisPage({
   // stage-by-stage progress bar here — the pipeline doesn't expose granular
   // stage state (only queued/running), so the copy stays honest about that.
   if (status === "queued" || status === "running") {
+    // Escape hatch for a stranded run (enqueued but never picked up, or killed by
+    // maxDuration without onFailure). Only surfaces once the run is far past its
+    // deadline, so it never tempts a user to cancel a healthy in-flight analysis.
+    const stuck =
+      Date.now() - new Date(analysis.updated_at as string).getTime() >
+      STUCK_AFTER_MS;
+
     return (
       <main className={WIZARD_WRAPPER}>
         <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
@@ -175,6 +184,18 @@ export default async function AnalysisPage({
           >
             Back to dashboard
           </Link>
+          {stuck && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[13px] text-muted-foreground">
+                This is taking much longer than usual. Something may have gone
+                wrong on our side — you can discard it and start over.
+              </p>
+              <DiscardButton
+                analysisId={id}
+                label="Discard and start over"
+              />
+            </div>
+          )}
         </div>
       </main>
     );

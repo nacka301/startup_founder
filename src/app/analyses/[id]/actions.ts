@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { STUCK_AFTER_MS } from "@/lib/analyses";
 import type { runAnalysis } from "@/trigger/run-analysis";
 
 type Answer = { id: string; answer: string };
@@ -161,11 +162,23 @@ export async function submitAnswers(
 
 /**
  * Discard an in-progress analysis so the user can start over. Ownership is
- * enforced by loading the row through the user's RLS-scoped session before the
- * service-role delete. Only a 'clarifying' analysis may be discarded — once it's
- * 'queued' (or later) the analysis job owns its lifecycle. Deleting the row frees
- * the user's single active slot and cascades to its questions; llm_costs rows
- * survive (analysis_id set null). Redirects to the new-analysis page on success.
+ * enforced by loading the row through the user's RLS-scoped session before any
+ * service-role write. Two cases:
+ *
+ *   - 'clarifying'        → delete the row (cascades to its questions; llm_costs
+ *                           rows survive via analysis_id set null). The job hasn't
+ *                           started, so nothing else owns its lifecycle.
+ *   - 'queued'/'running'  → ONLY when the row has been untouched for STUCK_AFTER_MS
+ *                           (far past the job's maxDuration): mark it 'failed' with
+ *                           code 'cancelled'. This is the escape hatch for a run
+ *                           that was enqueued but never executed, or killed by
+ *                           maxDuration without onFailure — otherwise the user is
+ *                           trapped (can't start a new one, active-slot gate).
+ *
+ * Marking 'failed' (rather than deleting) is safe against a late worker pickup: the
+ * job no-ops at its top-of-run status guard when the row isn't queued/running, so a
+ * stray run can never consume the credit. The staleness window rules out racing a
+ * healthy in-flight run. Redirects to the new-analysis page on success.
  */
 export async function cancelAnalysis(analysisId: string): Promise<SubmitResult> {
   const supabase = await createClient();
@@ -179,31 +192,59 @@ export async function cancelAnalysis(analysisId: string): Promise<SubmitResult> 
   // RLS scopes this to the owner; a non-owner (or missing id) gets null.
   const { data: analysis } = await supabase
     .from("analyses")
-    .select("id, status")
+    .select("id, status, updated_at")
     .eq("id", analysisId)
     .maybeSingle();
 
   if (!analysis) {
     return { error: "We couldn't find that analysis." };
   }
-  if (analysis.status !== "clarifying") {
-    return { error: "This analysis is already running and can't be discarded." };
-  }
 
-  // Guard on status = 'clarifying' so a concurrent submit can't have it deleted
-  // out from under a running job.
   const service = createServiceClient();
-  const { error } = await service
-    .from("analyses")
-    .delete()
-    .eq("id", analysisId)
-    .eq("status", "clarifying");
 
-  if (error) {
-    return { error: "Couldn't discard this analysis. Please try again." };
+  if (analysis.status === "clarifying") {
+    // Guard on status so a concurrent submit can't have it deleted out from
+    // under a job that's just been queued.
+    const { error } = await service
+      .from("analyses")
+      .delete()
+      .eq("id", analysisId)
+      .eq("status", "clarifying");
+
+    if (error) {
+      return { error: "Couldn't discard this analysis. Please try again." };
+    }
+
+    redirect("/analyses/new");
   }
 
-  redirect("/analyses/new");
+  if (analysis.status === "queued" || analysis.status === "running") {
+    const stale =
+      Date.now() - new Date(analysis.updated_at as string).getTime() >
+      STUCK_AFTER_MS;
+    if (!stale) {
+      return {
+        error:
+          "This analysis is still running. Give it a few more minutes — we'll email you when it's ready.",
+      };
+    }
+
+    // Guarded on queued/running so we never clobber a row that just settled to
+    // done/insufficient_evidence in a race.
+    const { error } = await service
+      .from("analyses")
+      .update({ status: "failed", failure_code: "cancelled" })
+      .eq("id", analysisId)
+      .in("status", ["queued", "running"]);
+
+    if (error) {
+      return { error: "Couldn't discard this analysis. Please try again." };
+    }
+
+    redirect("/analyses/new");
+  }
+
+  return { error: "This analysis is already finished and can't be discarded." };
 }
 
 /**
