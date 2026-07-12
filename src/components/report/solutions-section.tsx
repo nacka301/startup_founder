@@ -8,7 +8,7 @@ import { Reveal } from "@/components/motion/reveal";
 export function SolutionsSection({ solutions }: { solutions: ReportSolutions }) {
   return (
     <Reveal as="section" className="flex flex-col gap-5">
-      <h2 className="text-[21px] font-semibold tracking-[-0.015em]">
+      <h2 className="text-lg font-semibold tracking-[-0.015em] sm:text-[21px]">
         Possible solutions &amp; MVP shape
       </h2>
       <div className="flex flex-col gap-2">

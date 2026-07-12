@@ -35,7 +35,12 @@ export function VerdictHeader({
       transition={{ duration: DURATION.base, ease: EASE_OUT }}
     >
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
-        <ScoreRing score={score} verdict={verdict} size={168} />
+        <ScoreRing
+          score={score}
+          verdict={verdict}
+          sizeClassName="size-[132px] sm:size-[168px]"
+          numberClassName="text-[39px] sm:text-[50px]"
+        />
         <div className="flex flex-col items-center gap-3 text-center sm:items-start sm:text-left">
           <span
             className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold"

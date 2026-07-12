@@ -53,7 +53,7 @@ export function ClarifyForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-[30px]">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 sm:gap-[30px]">
       {questions.map((q, idx) => {
         const labelId = `q-${q.id}`;
         const selected = answers[q.id] ?? null;

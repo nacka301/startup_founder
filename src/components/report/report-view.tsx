@@ -36,7 +36,7 @@ export function ReportView({
   planSlot?: ReactNode;
 }) {
   return (
-    <article className="flex flex-col gap-10">
+    <article className="flex flex-col gap-6 sm:gap-10">
       <VerdictHeader score={score} verdict={verdict} summary={summary} />
       <CriteriaBreakdown criteria={criteria} verdict={verdict} evidence={evidence} />
       <ReportTabs

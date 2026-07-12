@@ -37,8 +37,8 @@ export function CriteriaBreakdown({
   const byId = new Map(evidence.map((e) => [e.id, e]));
 
   return (
-    <section className="flex flex-col gap-[22px]">
-      <h2 className="text-[21px] font-semibold tracking-[-0.015em]">
+    <section className="flex flex-col gap-4 sm:gap-[22px]">
+      <h2 className="text-lg font-semibold tracking-[-0.015em] sm:text-[21px]">
         Criteria breakdown
       </h2>
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
@@ -58,7 +58,7 @@ export function CriteriaBreakdown({
             <Reveal
               key={key}
               index={index}
-              className="glass backdrop-blur-[14px] card-hover rounded-[16px] p-5 hover:border-accent-cyan/35"
+              className="glass backdrop-blur-[14px] card-hover rounded-[16px] p-4 hover:border-accent-cyan/35 sm:p-5"
             >
               <div className="mb-2.5 flex items-baseline justify-between gap-3">
                 <h3 className="text-[15px] font-medium">

@@ -36,7 +36,7 @@ export function ReportTabs({
 
   return (
     <div>
-      <div className="mb-[22px] flex flex-wrap gap-2" role="tablist">
+      <div className="mb-4 flex flex-wrap gap-2 sm:mb-[22px]" role="tablist">
         {TABS.map((tab) => {
           const isActive = active === tab.id;
           return (

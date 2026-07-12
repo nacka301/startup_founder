@@ -24,7 +24,7 @@ const FILLER_TASK =
 export function LockedPlan() {
   return (
     <Reveal as="section" aria-labelledby="locked-plan-heading" className="flex flex-col gap-4">
-      <h2 id="locked-plan-heading" className="text-[21px] font-semibold tracking-[-0.015em]">
+      <h2 id="locked-plan-heading" className="text-lg font-semibold tracking-[-0.015em] sm:text-[21px]">
         Realization plan
       </h2>
 

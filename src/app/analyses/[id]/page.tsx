@@ -16,12 +16,12 @@ import { DiscardButton } from "./discard-button";
 import { ShareControls } from "./share-controls";
 
 const WRAPPER =
-  "mx-auto flex min-h-screen max-w-[760px] flex-col gap-8 px-6 pt-9 pb-[160px]";
+  "mx-auto flex min-h-screen max-w-[760px] flex-col gap-6 px-6 pt-8 pb-24 sm:gap-8 sm:pt-9 sm:pb-[160px]";
 // Wizard steps (clarify, running) share the narrower editorial width used by
 // the rest of the wizard (analyses/new); the finished report keeps WRAPPER's
 // wider 760px for its glass cards/tabs (README §5).
 const WIZARD_WRAPPER =
-  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-11 pb-[140px]";
+  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-8 pb-24 sm:pt-11 sm:pb-[140px]";
 const BACK_TO_DASHBOARD =
   "mb-7 inline-flex w-fit items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground";
 
@@ -40,12 +40,45 @@ export default async function AnalysisPage({
     redirect("/login");
   }
 
-  // RLS scopes this to the owner; anyone else (or a bad id) gets null → 404.
-  const { data: analysis } = await supabase
+  // RLS scopes this to the owner. Three distinct outcomes — keep them apart so a
+  // failure can never masquerade as "page not found":
+  //   - error set            → a DB/RLS/schema problem, NOT proof the row is
+  //                            missing or unowned. Show a retryable state, never 404.
+  //   - no error, data null  → genuinely missing or not-owned → notFound().
+  //   - a row                → render by status below.
+  const { data: analysis, error: analysisError } = await supabase
     .from("analyses")
     .select("id, status, idea_text, share_enabled, share_token, failure_code")
     .eq("id", id)
     .maybeSingle();
+
+  if (analysisError) {
+    // Log the real reason server-side (Vercel logs) for diagnosis; the user only
+    // ever sees a friendly, retryable message — never the raw error or a 404.
+    console.error(`Failed to load analysis ${id}:`, analysisError.message);
+    return (
+      <main className={WIZARD_WRAPPER}>
+        <Link href="/dashboard" className={BACK_TO_DASHBOARD}>
+          ← Back to dashboard
+        </Link>
+        <div className="flex flex-col items-start gap-4">
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
+            We couldn&apos;t load this analysis
+          </h1>
+          <p className="text-muted-foreground">
+            Something went wrong on our side. Please refresh in a moment — your
+            analysis is safe.
+          </p>
+          <Link
+            href="/dashboard"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Back to dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   if (!analysis) {
     notFound();
@@ -74,7 +107,7 @@ export default async function AnalysisPage({
           </Link>
           <div className="flex flex-col items-start gap-4">
             <div className="flex flex-col gap-2">
-              <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
+              <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
                 This one didn&apos;t finish setting up
               </h1>
               <p className="text-muted-foreground">
@@ -95,7 +128,7 @@ export default async function AnalysisPage({
         </Link>
         <WizardStepper current={2} />
         <header className="mb-6 flex flex-col gap-2.5">
-          <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
             A few questions to sharpen it
           </h1>
           <p className="text-[15px] text-muted-foreground">
@@ -125,7 +158,7 @@ export default async function AnalysisPage({
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-cyan">
             Analyzing
           </span>
-          <h1 className="max-w-[480px] text-[30px] font-semibold leading-[1.2] tracking-[-0.03em]">
+          <h1 className="max-w-[480px] text-[24px] font-semibold leading-[1.2] tracking-[-0.03em] sm:text-[30px]">
             Reading what people actually say about this problem.
           </h1>
           <p className="text-[15px] leading-[1.6] text-muted-foreground">
@@ -232,7 +265,7 @@ export default async function AnalysisPage({
     return (
       <main className={WRAPPER}>
         <div className="flex flex-col items-start gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             We couldn&apos;t load this report
           </h1>
           <p className="text-muted-foreground">
@@ -255,7 +288,7 @@ export default async function AnalysisPage({
       <PlanSection plan={parsed.plan} />
     ) : (
       <section className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold tracking-tight">Realization plan</h2>
+        <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Realization plan</h2>
         <p className="text-sm text-muted-foreground">
           Your plan isn&apos;t ready yet — refresh in a moment. If it doesn&apos;t
           appear, start a new analysis or contact support.

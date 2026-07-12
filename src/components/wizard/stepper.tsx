@@ -15,7 +15,7 @@ const STEPS = [
 
 export function WizardStepper({ current }: { current: 1 | 2 | 3 }) {
   return (
-    <div className="mb-10 flex items-center gap-2.5" aria-label="Analysis progress">
+    <div className="mb-8 flex items-center gap-2.5 sm:mb-10" aria-label="Analysis progress">
       {STEPS.map((step, idx) => {
         const done = current > step.n;
         const active = current === step.n;

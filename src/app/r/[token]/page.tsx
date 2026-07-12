@@ -45,7 +45,7 @@ export default async function SharedReportPage({
   return (
     <div className="min-h-screen">
       <Banner />
-      <main className="mx-auto flex max-w-[720px] flex-col gap-8 px-6 py-12">
+      <main className="mx-auto flex max-w-[720px] flex-col gap-6 px-6 py-8 sm:gap-8 sm:py-12">
         {analysis.status === "done" ? (
           <SharedDone analysisId={analysis.id} ideaText={analysis.idea_text} />
         ) : (

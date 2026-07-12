@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { animate, useReducedMotion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { VERDICT_DISPLAY } from "@/lib/report-schema";
 import { EASE_OUT, DURATION } from "@/lib/motion";
 
@@ -24,10 +25,18 @@ export function ScoreRing({
   score,
   verdict,
   size = 132,
+  sizeClassName,
+  numberClassName,
 }: {
   score: number;
   verdict: "go" | "caution" | "stop";
   size?: number;
+  /** Tailwind sizing classes (e.g. responsive `size-[132px] sm:size-[168px]`).
+   * When set, drives the ring's box via CSS instead of the numeric `size`. */
+  sizeClassName?: string;
+  /** Tailwind font-size classes for the score number; pairs with sizeClassName
+   * so the number scales with a responsive ring. Falls back to `size * 0.3`. */
+  numberClassName?: string;
 }) {
   const clamped = Math.max(0, Math.min(100, score));
   const color = VERDICT_DISPLAY[verdict].color;
@@ -70,12 +79,17 @@ export function ScoreRing({
 
   return (
     <div
-      className="relative shrink-0"
-      style={{ width: size, height: size }}
+      className={cn("relative shrink-0", sizeClassName)}
+      style={sizeClassName ? undefined : { width: size, height: size }}
       role="img"
       aria-label={`Score ${clamped} out of 100`}
     >
-      <svg width={size} height={size} viewBox={`0 0 ${VIEW} ${VIEW}`}>
+      <svg
+        className={sizeClassName ? "h-full w-full" : undefined}
+        width={sizeClassName ? undefined : size}
+        height={sizeClassName ? undefined : size}
+        viewBox={`0 0 ${VIEW} ${VIEW}`}
+      >
         {ticks.map((t, i) => (
           <line
             key={i}
@@ -91,8 +105,11 @@ export function ScoreRing({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="font-mono font-bold leading-none tracking-tight text-foreground tabular-nums"
-          style={{ fontSize: size * 0.3 }}
+          className={cn(
+            "font-mono font-bold leading-none tracking-tight text-foreground tabular-nums",
+            numberClassName,
+          )}
+          style={numberClassName ? undefined : { fontSize: size * 0.3 }}
         >
           {Math.round(displayed)}
         </span>

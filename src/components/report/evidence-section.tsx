@@ -63,7 +63,7 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceItem[] }) {
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-[21px] font-semibold tracking-[-0.015em]">Evidence</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.015em] sm:text-[21px]">Evidence</h2>
         <p className="text-sm text-muted-foreground">
           Real complaints and discussions we found online — {evidence.length}{" "}
           {evidence.length === 1 ? "item" : "items"} across {totalMentions}{" "}

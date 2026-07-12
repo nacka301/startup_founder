@@ -7,7 +7,7 @@ import { WizardStepper } from "@/components/wizard/stepper";
 import { NewAnalysisForm } from "./new-analysis-form";
 
 const WRAPPER =
-  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-11 pb-[140px]";
+  "mx-auto flex min-h-screen max-w-[660px] flex-col px-6 pt-8 pb-24 sm:pt-11 sm:pb-[140px]";
 const BACK_LINK =
   "mb-7 inline-flex w-fit items-center gap-1.5 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground";
 
@@ -25,7 +25,7 @@ function Blocked({
   return (
     <div className="flex flex-col items-start gap-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-[30px] font-semibold tracking-[-0.025em]">{title}</h1>
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">{title}</h1>
         <p className="text-muted-foreground">{body}</p>
       </div>
       <Link href={href} className={buttonVariants({ variant: "outline" })}>
@@ -124,7 +124,7 @@ export default async function NewAnalysisPage({
       </Link>
       <WizardStepper current={1} />
       <header className="mb-6 flex flex-col gap-2.5">
-        <h1 className="text-[30px] font-semibold tracking-[-0.025em]">
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
           What&apos;s your idea?
         </h1>
         <p className="text-[15px] leading-[1.6] text-muted-foreground">

@@ -12,7 +12,7 @@ export function PlanSection({ plan }: { plan: ReportPlan }) {
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-[21px] font-semibold tracking-[-0.015em]">
+        <h2 className="text-lg font-semibold tracking-[-0.015em] sm:text-[21px]">
           Realization plan
         </h2>
         <p className="text-sm text-muted-foreground">
