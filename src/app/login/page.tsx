@@ -42,10 +42,17 @@ export default function LoginPage() {
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  // Surface errors handed back by the /auth/callback route (e.g. consumed link).
+  // Post-login destination, set by middleware when it bounces a protected route
+  // (e.g. ?next=/analyses/new). Validated server-side before any redirect.
+  const [next, setNext] = useState<string | null>(null);
+
+  // Surface errors handed back by the /auth/callback route (e.g. consumed link),
+  // and pick up the intended post-login destination.
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("error");
     if (code) setSendError(messageForErrorCode(code));
+    setNext(params.get("next"));
   }, []);
 
   async function sendMagicLink() {
@@ -54,10 +61,12 @@ export default function LoginPage() {
     setVerifyError(null);
 
     const supabase = createClient();
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    if (next) callbackUrl.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: callbackUrl.toString(),
       },
     });
 
@@ -91,7 +100,7 @@ export default function LoginPage() {
 
     // Verified server-side (see ./actions) so auth cookies are set before we
     // navigate; on success the action redirects and this returns nothing.
-    const result = await verifyCode(email, code);
+    const result = await verifyCode(email, code, next);
     if (result?.error) {
       setVerifyError(result.error);
       setVerifyStatus("error");

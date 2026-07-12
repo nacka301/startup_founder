@@ -1,31 +1,23 @@
 import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safe-next";
 
 /**
  * Magic-link callback. Supports both Supabase email-link flows so it works
  * regardless of how the project's magic-link template is configured:
  *   - PKCE:       `?code=...`               -> exchangeCodeForSession
  *   - token_hash: `?token_hash=...&type=..` -> verifyOtp (default template)
- * On success we send the user to a validated in-app path.
+ * On success we send the user to a validated in-app path (safeNextPath guards
+ * against open redirects).
  */
-
-/**
- * Only allow local absolute paths (e.g. "/dashboard"). Rejects absolute URLs
- * and protocol-relative values like "//evil.com" or "@evil.com" that browsers
- * would resolve to a foreign host — i.e. prevents an open redirect.
- */
-function safeNext(raw: string | null): string {
-  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
-  return "/dashboard";
-}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = safeNext(searchParams.get("next"));
+  const next = safeNextPath(searchParams.get("next"));
 
   const supabase = await createClient();
 

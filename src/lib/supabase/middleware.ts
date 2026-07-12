@@ -44,6 +44,10 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // Carry the intended destination (path only — never the original query, to
+    // avoid leaking params) so login can return the user there after auth.
+    url.search = "";
+    url.searchParams.set("next", path);
     const redirectResponse = NextResponse.redirect(url);
     // Carry over any auth cookies refreshed above so the session stays in sync.
     supabaseResponse.cookies
