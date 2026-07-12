@@ -14,6 +14,25 @@ export const MAX_IDEA_LENGTH = 2000;
 /** Statuses that count as "in progress" — only one allowed per user at a time. */
 export const ACTIVE_STATUSES = ["clarifying", "queued", "running"] as const;
 
+/**
+ * How long a 'queued'/'running' analysis may sit untouched before the user is
+ * offered a self-service discard. Set well beyond the job's 900s `maxDuration`
+ * (trigger.config.ts) so the affordance only appears once a run is genuinely
+ * stranded — never while a healthy job is still working. See cancelAnalysis.
+ */
+export const STUCK_AFTER_MS = 15 * 60_000;
+
+/**
+ * First instant of the current calendar month (UTC) as ISO — the lower bound for
+ * the paid fair-use count (analyses this month, PRD §7). `now` is injectable for
+ * tests.
+ */
+export function startOfMonthISO(now: Date = new Date()): string {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
+}
+
 export type AnalysisStatus =
   | "clarifying"
   | "queued"

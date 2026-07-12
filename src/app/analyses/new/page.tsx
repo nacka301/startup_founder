@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
-import { ACTIVE_STATUSES } from "@/lib/analyses";
+import { ACTIVE_STATUSES, startOfMonthISO } from "@/lib/analyses";
+import { PAID_PLAN } from "@/lib/pricing";
 import { WizardStepper } from "@/components/wizard/stepper";
 import { NewAnalysisForm } from "./new-analysis-form";
 
@@ -77,14 +78,20 @@ export default async function NewAnalysisPage({
     );
   }
 
-  // Gate 2: free users get one analysis.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan, free_credit_used")
+    .select("plan, free_credit_used, onboarding_completed_at")
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan === "free" && profile.free_credit_used) {
+  // Gate 2: onboarding must be done once before the wizard (PRD §5.2) — mirrors
+  // the dashboard and the createAnalysis action (the real enforcement point).
+  if (!profile?.onboarding_completed_at) {
+    redirect("/onboarding");
+  }
+
+  // Gate 3a: free users get one analysis.
+  if (profile.plan === "free" && profile.free_credit_used) {
     return (
       <main className={WRAPPER}>
         <Link href="/dashboard" className={BACK_LINK}>
@@ -98,6 +105,31 @@ export default async function NewAnalysisPage({
         />
       </main>
     );
+  }
+
+  // Gate 3b: paid users get PAID_PLAN.analysesPerMonth per calendar month (fair use).
+  if (profile.plan === "paid") {
+    const { count } = await supabase
+      .from("analyses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("consumed_credit", true)
+      .gte("created_at", startOfMonthISO());
+    if ((count ?? 0) >= PAID_PLAN.analysesPerMonth) {
+      return (
+        <main className={WRAPPER}>
+          <Link href="/dashboard" className={BACK_LINK}>
+            ← Back to dashboard
+          </Link>
+          <Blocked
+            title="You've reached this month's analyses"
+            body={`You've used all ${PAID_PLAN.analysesPerMonth} of your analyses for this month. Your limit resets at the start of next month.`}
+            href="/dashboard"
+            cta="Back to dashboard"
+          />
+        </main>
+      );
+    }
   }
 
   // Retry affordance: `?from=<id>` prefills the idea from a failed analysis so the

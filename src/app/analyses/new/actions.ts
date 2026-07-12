@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateClarificationQuestions } from "@/lib/anthropic/clarification";
-import { ACTIVE_STATUSES, MAX_IDEA_LENGTH, MIN_IDEA_LENGTH } from "@/lib/analyses";
+import {
+  ACTIVE_STATUSES,
+  MAX_IDEA_LENGTH,
+  MIN_IDEA_LENGTH,
+  startOfMonthISO,
+} from "@/lib/analyses";
+import { PAID_PLAN } from "@/lib/pricing";
 
 type CreateResult = { error: string };
 type ServiceClient = ReturnType<typeof createServiceClient>;
@@ -58,15 +64,36 @@ export async function createAnalysis(ideaText: string): Promise<CreateResult> {
     redirect(`/analyses/${activeId}`);
   }
 
-  // Gate 2: free users get one analysis.
   const { data: profile } = await service
     .from("profiles")
-    .select("plan, free_credit_used")
+    .select("plan, free_credit_used, onboarding_completed_at")
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan === "free" && profile.free_credit_used) {
+  // Gate 2: onboarding must be completed once before any analysis (PRD §5.2) —
+  // the verdict's personal-feasibility score reads the profile. The page also
+  // redirects, but the action is the enforcement point (the page can be skipped).
+  if (!profile?.onboarding_completed_at) {
+    redirect("/onboarding");
+  }
+
+  // Gate 3: free users get one analysis; paid users get PAID_PLAN.analysesPerMonth
+  // per calendar month (fair use, PRD §7). Credit is consumed only on success.
+  if (profile.plan === "free" && profile.free_credit_used) {
     return { error: "You've used your free analysis. Upgrade to run more." };
+  }
+  if (profile.plan === "paid") {
+    const { count } = await service
+      .from("analyses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("consumed_credit", true)
+      .gte("created_at", startOfMonthISO());
+    if ((count ?? 0) >= PAID_PLAN.analysesPerMonth) {
+      return {
+        error: `You've reached your ${PAID_PLAN.analysesPerMonth} analyses for this month. Your limit resets at the start of next month.`,
+      };
+    }
   }
 
   // Reserve the row first (status 'clarifying') so the active slot is taken,
