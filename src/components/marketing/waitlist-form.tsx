@@ -21,7 +21,17 @@ export function WaitlistForm() {
     setStatus({ kind: "idle" });
 
     startTransition(async () => {
-      const result = await joinWaitlist(email);
+      let result;
+      try {
+        result = await joinWaitlist(email);
+      } catch {
+        setStatus({
+          kind: "error",
+          message: "Something went wrong. Please try again.",
+        });
+        return;
+      }
+
       if ("error" in result) {
         setStatus({ kind: "error", message: result.error });
         return;

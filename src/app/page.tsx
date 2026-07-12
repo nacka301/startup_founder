@@ -7,6 +7,7 @@ import { SegmentedMeter } from "@/components/report/segmented-meter";
 import { VERDICT_DISPLAY } from "@/lib/report-schema";
 import { FREE_PLAN, PAID_PLAN } from "@/lib/pricing";
 import { Reveal } from "@/components/motion/reveal";
+import { WaitlistForm } from "@/components/marketing/waitlist-form";
 
 export const metadata: Metadata = {
   title: "BuildWorthy — an evidence-backed verdict on your business idea",
@@ -437,13 +438,31 @@ export default function Home() {
 
       {/* ============ Footer ============ */}
       <footer className="border-t border-border">
-        <div
-          className={`${container} flex flex-col items-center justify-between gap-2 py-8 text-[13px] text-muted-foreground sm:flex-row`}
-        >
-          <span className="font-semibold text-foreground">BuildWorthy</span>
-          <span>
-            Research assistance for your idea — not guaranteed business advice.
-          </span>
+        {/* Build-in-public updates — secondary to the live "start now" CTAs above. */}
+        <div className={`${container} py-12`}>
+          <div className="mx-auto flex max-w-[440px] flex-col items-center gap-3 text-center">
+            <h2 className="text-[18px] font-semibold tracking-[-0.01em]">
+              Follow the build
+            </h2>
+            <p className="text-[13px] leading-[1.6] text-muted-foreground">
+              BuildWorthy is built in public. Leave your email for the occasional
+              update — new features and when the paid plan launches. No spam.
+            </p>
+            <div className="mt-1 w-full max-w-[380px]">
+              <WaitlistForm />
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-border">
+          <div
+            className={`${container} flex flex-col items-center justify-between gap-2 py-8 text-[13px] text-muted-foreground sm:flex-row`}
+          >
+            <span className="font-semibold text-foreground">BuildWorthy</span>
+            <span>
+              Research assistance for your idea — not guaranteed business advice.
+            </span>
+          </div>
         </div>
       </footer>
     </div>

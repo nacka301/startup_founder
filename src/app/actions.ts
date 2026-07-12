@@ -27,19 +27,26 @@ export async function joinWaitlist(rawEmail: string): Promise<WaitlistResult> {
     return { error: "Please enter a valid email address." };
   }
 
-  const service = createServiceClient();
-  const { error } = await service
-    .from("waitlist")
-    .insert({ email: parsed.data, source: "landing" });
+  // A throw here (missing env var, network failure) would reject the action's
+  // promise and leave the form with no feedback at all, so nothing escapes.
+  try {
+    const service = createServiceClient();
+    const { error } = await service
+      .from("waitlist")
+      .insert({ email: parsed.data, source: "landing" });
 
-  if (error) {
-    // 23505 = unique_violation → already on the list.
-    if (error.code === "23505") {
-      return { ok: true, already: true };
+    if (error) {
+      // 23505 = unique_violation → already on the list.
+      if (error.code === "23505") {
+        return { ok: true, already: true };
+      }
+      console.error("Waitlist insert failed:", error.message);
+      return { error: "Something went wrong. Please try again." };
     }
-    console.error("Waitlist insert failed:", error.message);
+
+    return { ok: true, already: false };
+  } catch (cause) {
+    console.error("Waitlist insert threw:", cause);
     return { error: "Something went wrong. Please try again." };
   }
-
-  return { ok: true, already: false };
 }

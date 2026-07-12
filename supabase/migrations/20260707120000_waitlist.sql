@@ -7,7 +7,11 @@
 -- policies for `anon`/`authenticated`. RLS is on with no grants — the table is
 -- internal (only an admin, via the service role, ever reads it).
 
-create table public.waitlist (
+-- Idempotent so a re-run reconciles drift: on remote the table was created out
+-- of band (its migration was never recorded), which blocked `db push`. The
+-- guards below let the migration apply cleanly whether or not the objects exist,
+-- and still guarantee RLS ends up enabled.
+create table if not exists public.waitlist (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,                   -- normalized to lowercase in the action
   source text,                                  -- 'landing' | 'twitch' | ...
@@ -15,6 +19,7 @@ create table public.waitlist (
   updated_at timestamptz not null default now()
 );
 
+drop trigger if exists set_waitlist_updated_at on public.waitlist;
 create trigger set_waitlist_updated_at
   before update on public.waitlist
   for each row
