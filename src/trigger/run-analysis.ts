@@ -426,27 +426,42 @@ export const runAnalysis = task({
       // 6. Insufficient-evidence gate. This is a VALID OUTCOME, not a failure: it
       // never sets a failure_code and never reaches finalizeFailure.
       if (deduped.length < MIN_EVIDENCE) {
-        await service
-          .from("analyses")
-          .update({ status: "insufficient_evidence" })
-          .eq("id", analysisId)
-          .in("status", ["queued", "running"]);
+        // Write the report FIRST, then flip status — same ordering as the 'done'
+        // path. If the flip is what fails, a retry re-runs to here (status still
+        // queued/running) and rewrites the report; flipping first would strand an
+        // 'insufficient_evidence' row whose reason never got written (the retry
+        // would skip at the top-of-run status guard).
+        await runStage("evidence_persist_failed", async () => {
+          const { error } = await service.from("reports").upsert(
+            {
+              analysis_id: analysisId,
+              verdict: "insufficient",
+              score: null,
+              summary:
+                "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
+              insufficient_reason: buildInsufficientReason({
+                queries: queries.length,
+                candidates: candidates.length,
+                relevant: deduped.length,
+              }),
+            },
+            { onConflict: "analysis_id" },
+          );
+          if (error) {
+            throw new Error(`Failed to upsert insufficient report: ${error.message}`);
+          }
+        });
 
-        await service.from("reports").upsert(
-          {
-            analysis_id: analysisId,
-            verdict: "insufficient",
-            score: null,
-            summary:
-              "We couldn't find enough public evidence about this problem yet to give a reliable verdict.",
-            insufficient_reason: buildInsufficientReason({
-              queries: queries.length,
-              candidates: candidates.length,
-              relevant: deduped.length,
-            }),
-          },
-          { onConflict: "analysis_id" },
-        );
+        await runStage("evidence_persist_failed", async () => {
+          const { error } = await service
+            .from("analyses")
+            .update({ status: "insufficient_evidence" })
+            .eq("id", analysisId)
+            .in("status", ["queued", "running"]);
+          if (error) {
+            throw new Error(`Failed to mark insufficient_evidence: ${error.message}`);
+          }
+        });
 
         // Credit is intentionally NOT consumed here (nor is profiles.free_credit_used
         // touched) — reaching insufficient_evidence also frees the user's active slot.
