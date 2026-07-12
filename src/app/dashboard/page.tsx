@@ -12,6 +12,19 @@ import { VERDICT_DISPLAY } from "@/lib/report-schema";
 
 const IN_FLIGHT_STATUSES = new Set<AnalysisStatus>(["queued", "running"]);
 
+// Status-chip palette. Terminal states read distinctly: done = green,
+// failed = red (destructive), insufficient_evidence = neutral. The in-progress
+// states share the primary purple. (The verdict green/amber/red palette stays
+// reserved for the report itself — this is only the neutral status chip.)
+const CHIP_CLASS: Record<AnalysisStatus, string> = {
+  done: "bg-[rgba(34,197,94,0.10)] text-[#22C55E]",
+  failed: "bg-[rgba(239,68,68,0.12)] text-[#F87171]",
+  insufficient_evidence: "bg-white/[0.06] text-[#9CA3AF]",
+  clarifying: "bg-[rgba(139,92,246,0.14)] text-[#C4B5FD]",
+  queued: "bg-[rgba(139,92,246,0.14)] text-[#C4B5FD]",
+  running: "bg-[rgba(139,92,246,0.14)] text-[#C4B5FD]",
+};
+
 function isRealVerdict(v: unknown): v is "go" | "caution" | "stop" {
   return v === "go" || v === "caution" || v === "stop";
 }
@@ -162,11 +175,7 @@ export default async function DashboardPage() {
                   </div>
                   {meta && (
                     <span
-                      className={`shrink-0 rounded-full px-[11px] py-[5px] text-xs font-medium ${
-                        status === "done"
-                          ? "bg-[rgba(34,197,94,0.10)] text-[#22C55E]"
-                          : "bg-[rgba(139,92,246,0.14)] text-[#C4B5FD]"
-                      }`}
+                      className={`shrink-0 rounded-full px-[11px] py-[5px] text-xs font-medium ${CHIP_CLASS[status]}`}
                     >
                       {meta.label}
                     </span>
