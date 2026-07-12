@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({
@@ -43,6 +44,7 @@ export default function RootLayout({
             it via the relative z-10 wrapper below. */}
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-background bg-ambient-glow" />
         <div className="relative z-10">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
