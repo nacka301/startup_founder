@@ -47,11 +47,11 @@ export function RadioCardGroup({
             name={name}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex flex-col items-start gap-0.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+              "card-hover flex min-h-11 flex-col items-start gap-0.5 rounded-[12px] border px-4 py-3 text-left text-sm",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               selected
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border bg-card hover:bg-muted/50",
+                ? "border-primary bg-primary/10 ring-1 ring-primary shadow-glow"
+                : "border-border bg-card",
             )}
           >
             <span className="font-medium text-foreground">{option.label}</span>

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# trigger.dev (local build/dev cache)
+.trigger
+
 # vercel
 .vercel
 

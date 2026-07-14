@@ -24,6 +24,7 @@ analyses (
   status text DEFAULT 'clarifying',
   -- 'clarifying' | 'queued' | 'running' | 'done' | 'insufficient_evidence' | 'failed'
   consumed_credit boolean DEFAULT false, -- false for insufficient_evidence/failed
+  failure_code text NULL,                -- machine-safe reason, only when status='failed'
   trigger_run_id text,
   share_token text UNIQUE NULL,          -- set when sharing enabled
   share_enabled boolean DEFAULT false
@@ -81,7 +82,8 @@ waitlist (
 
 ## Notes
 
+- **Failures:** `failure_code` is a closed enum (`query_planning_failed`, `evidence_search_failed`, `evidence_extraction_failed`, `evidence_persist_failed`, `verdict_generation_failed`, `plan_generation_failed`, `report_persist_failed`, `timed_out`, `cancelled`, `unknown`), set only alongside `status='failed'` and NULL otherwise. The owner can read it under RLS, so it never carries raw exception text — the UI maps each code to friendly copy. `failed` is an error; `insufficient_evidence` is a valid outcome and never sets a code.
 - **Credits:** free = `free_credit_used` flag; paid = count `analyses` with `consumed_credit=true` in current month < 10. One `status IN ('clarifying','queued','running')` analysis per user at a time (partial unique index).
-- **Public share route** reads via `share_token` with a security-definer function (no auth), returns report minus `plan`.
+- **Public share route** reads via `share_token` (+ `share_enabled=true`) using the service-role client in the `/r/[token]` server component (no auth); the query never selects `plan`, so the paid plan is absent from the shared payload.
 - **Billing (week 4):** add `subscriptions` table fed by Lemon Squeezy webhooks (`ls_subscription_id`, status, renews_at); `profiles.plan` becomes derived. Manual toggle remains for admin.
 - Migrations via Supabase CLI, checked into repo.
