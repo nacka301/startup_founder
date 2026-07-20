@@ -22,16 +22,16 @@ export function AnalysisFailed({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
+      <header className="flex flex-col gap-2.5">
         <span className="inline-flex w-fit items-center rounded-full border border-destructive/30 px-3 py-1 text-sm font-medium text-destructive">
           Failed
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
           We couldn&apos;t finish this analysis
         </h1>
       </header>
 
-      <p className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+      <p className="glass backdrop-blur-[14px] rounded-[14px] px-[18px] py-4 text-sm leading-relaxed text-muted-foreground">
         {ideaText}
       </p>
 
@@ -39,7 +39,7 @@ export function AnalysisFailed({
         {FAILURE_COPY[code]} We&apos;ve logged the error and are looking into it.
       </p>
 
-      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+      <div className="rounded-[14px] border border-primary/20 bg-primary/5 px-[18px] py-4">
         <p className="text-sm text-foreground">
           <span className="font-medium">Your free analysis hasn&apos;t been used.</span>{" "}
           Start it again — it won&apos;t cost you a credit.

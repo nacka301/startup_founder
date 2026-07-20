@@ -1,7 +1,44 @@
 import { ExternalLink, MessageSquare } from "lucide-react";
 import type { EvidenceItem } from "@/lib/report-schema";
 import { Reveal } from "@/components/motion/reveal";
+import { cn } from "@/lib/utils";
 import { sourceLabel } from "./source-label";
+
+const SEVERITY_LABEL: Record<number, string> = {
+  1: "mild",
+  2: "recurring",
+  3: "serious",
+};
+
+/**
+ * A restrained 3-step intensity indicator for an item's severity (1–3). Neutral
+ * dots only — never the GO/CAUTION/STOP palette, which UI-STYLE-GUIDE reserves
+ * for verdict meaning. Labelled for screen readers; the dots are decorative.
+ */
+function SeverityMeter({ severity }: { severity: number }) {
+  const s = Math.min(3, Math.max(1, severity));
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      aria-label={`Severity: ${SEVERITY_LABEL[s]} (${s} of 3)`}
+    >
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#6B7280]">
+        Severity
+      </span>
+      <span className="flex items-center gap-1" aria-hidden>
+        {[1, 2, 3].map((n) => (
+          <span
+            key={n}
+            className={cn(
+              "size-1.5 rounded-full",
+              n <= s ? "bg-muted-foreground" : "bg-white/12",
+            )}
+          />
+        ))}
+      </span>
+    </span>
+  );
+}
 
 /**
  * Evidence section (PRD §6.3): real quotes with links and a "N similar mentions"
@@ -24,6 +61,7 @@ function EvidenceCard({ item, index = 0 }: { item: EvidenceItem; index?: number 
             <MessageSquare className="size-3.5" aria-hidden />
             {sourceLabel(item.url)}
           </span>
+          <SeverityMeter severity={item.severity} />
           {item.similar_count > 1 && (
             <span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-xs font-medium">
               {item.similar_count} similar mentions

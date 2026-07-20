@@ -251,8 +251,8 @@ export default async function AnalysisPage({
   const isPaid = profile?.plan === "paid";
 
   const columns = isPaid
-    ? "score, verdict, summary, criteria, solutions, plan"
-    : "score, verdict, summary, criteria, solutions";
+    ? "score, verdict, confidence, summary, criteria, solutions, plan"
+    : "score, verdict, confidence, summary, criteria, solutions";
 
   const { data: report } = await supabase
     .from("reports")
@@ -271,6 +271,7 @@ export default async function AnalysisPage({
     score: number | null;
     verdict: string | null;
     summary: string | null;
+    confidence?: unknown;
     criteria: unknown;
     solutions: unknown;
     plan?: unknown;
@@ -286,7 +287,7 @@ export default async function AnalysisPage({
     return (
       <main className={WRAPPER}>
         <div className="flex flex-col items-start gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[30px]">
             We couldn&apos;t load this report
           </h1>
           <p className="text-muted-foreground">
@@ -338,6 +339,7 @@ export default async function AnalysisPage({
         score={parsed.score}
         verdict={parsed.verdict}
         summary={parsed.summary}
+        confidence={parsed.confidence}
         criteria={parsed.criteria}
         solutions={parsed.solutions}
         evidence={parsed.evidence}

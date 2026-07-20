@@ -1,4 +1,5 @@
 import type {
+  ConfidenceLevel,
   EvidenceItem,
   ReportCriterion,
   ReportPlan,
@@ -18,6 +19,7 @@ export const SAMPLE_IDEA =
 
 export const SAMPLE_SCORE = 78;
 export const SAMPLE_VERDICT = "go" as const;
+export const SAMPLE_CONFIDENCE: ConfidenceLevel = "high";
 
 export const SAMPLE_SUMMARY =
   "A real, frequently-voiced problem with clear willingness to pay. Competition exists but leaves obvious gaps, and it fits a solo builder's time and budget. The evidence supports building a focused first version.";
@@ -61,7 +63,7 @@ export const SAMPLE_EVIDENCE: EvidenceItem[] = [
     quote:
       "I waste half a day every month chasing clients for invoices they 'forgot'. I'd genuinely pay for something that just did it for me.",
     author_handle: null,
-    severity: 4,
+    severity: 3,
     topic: "Chasing late payments",
     similar_count: 34,
   },
@@ -72,7 +74,7 @@ export const SAMPLE_EVIDENCE: EvidenceItem[] = [
     quote:
       "The worst part of freelancing isn't the work, it's the awkward 'hey, just following up on that invoice' email for the third time.",
     author_handle: null,
-    severity: 4,
+    severity: 2,
     topic: "Chasing late payments",
     similar_count: 21,
   },
@@ -83,7 +85,7 @@ export const SAMPLE_EVIDENCE: EvidenceItem[] = [
     quote:
       "Take my money. If a tool sent polite reminders automatically and got me paid a week faster, that pays for itself instantly.",
     author_handle: null,
-    severity: 5,
+    severity: 3,
     topic: "Willingness to pay",
     similar_count: 18,
   },
@@ -94,7 +96,7 @@ export const SAMPLE_EVIDENCE: EvidenceItem[] = [
     quote:
       "Currently doing this manually with calendar reminders and it's a mess. Would switch to anything that just handled it.",
     author_handle: null,
-    severity: 3,
+    severity: 2,
     topic: "Willingness to pay",
     similar_count: 12,
   },

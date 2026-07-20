@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import { CRITERION_KEYS } from "@/prompts/verdict.v1";
+import { CRITERION_KEYS } from "@/prompts/verdict.v2";
 import {
   CRITERION_LABELS,
   VERDICT_DISPLAY,

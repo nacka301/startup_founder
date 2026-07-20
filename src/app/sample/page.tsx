@@ -6,6 +6,7 @@ import { ReportView } from "@/components/report/report-view";
 import { PlanSection } from "@/components/report/plan-section";
 import { LockedPlan } from "@/components/report/locked-plan";
 import {
+  SAMPLE_CONFIDENCE,
   SAMPLE_CRITERIA,
   SAMPLE_EVIDENCE,
   SAMPLE_IDEA,
@@ -62,6 +63,7 @@ export default async function SamplePage({
         score={SAMPLE_SCORE}
         verdict={SAMPLE_VERDICT}
         summary={SAMPLE_SUMMARY}
+        confidence={SAMPLE_CONFIDENCE}
         criteria={SAMPLE_CRITERIA}
         solutions={SAMPLE_SOLUTIONS}
         evidence={SAMPLE_EVIDENCE}

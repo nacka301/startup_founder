@@ -25,7 +25,7 @@ All colors tuned for WCAG AA contrast on dark surfaces.
 
 **Semantic verdict colors (only place more color appears):**
 - GO: `#22C55E` (emerald); used in verdict badge, score ring, criteria bars.
-- CAUTION: `#F59E0B` (amber); clear, distinct from GO.
+- CAUTION: `#FBBF24` (amber); clear, distinct from GO, tuned brighter for contrast on the near-black base.
 - STOP: `#EF4444` (red); highest alert level.
 - Badge alpha: `${color}1a` (6% opacity) for subtle backgrounds.
 

@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { buttonVariants } from "@/components/ui/button";
 import { parseDoneReport } from "@/lib/report";
 import { ReportView } from "@/components/report/report-view";
+import { InsufficientEvidence } from "@/components/report/insufficient-evidence";
 
 /**
  * Public, read-only share view (ARCHITECTURE.md §4). Opt-in only: rendered solely
@@ -45,7 +46,7 @@ export default async function SharedReportPage({
   return (
     <div className="min-h-screen">
       <Banner />
-      <main className="mx-auto flex max-w-[720px] flex-col gap-6 px-6 py-8 sm:gap-8 sm:py-12">
+      <main className="mx-auto flex max-w-[760px] flex-col gap-6 px-6 py-8 sm:gap-8 sm:py-12">
         {analysis.status === "done" ? (
           <SharedDone analysisId={analysis.id} ideaText={analysis.idea_text} />
         ) : (
@@ -63,7 +64,7 @@ export default async function SharedReportPage({
 function Banner() {
   return (
     <div className="border-b border-border bg-muted/40">
-      <div className="mx-auto flex max-w-[720px] items-center justify-between gap-4 px-6 py-3">
+      <div className="mx-auto flex max-w-[760px] items-center justify-between gap-4 px-6 py-3">
         <span className="text-sm font-semibold tracking-tight">BuildWorthy</span>
         <Link
           href="/"
@@ -106,7 +107,7 @@ async function SharedDone({
   // the paid realization plan into its HTML.
   const { data: report } = await service
     .from("reports")
-    .select("score, verdict, summary, criteria, solutions")
+    .select("score, verdict, confidence, summary, criteria, solutions")
     .eq("analysis_id", analysisId)
     .maybeSingle();
 
@@ -123,6 +124,7 @@ async function SharedDone({
           score: number | null;
           verdict: string | null;
           summary: string | null;
+          confidence?: unknown;
           criteria: unknown;
           solutions: unknown;
         },
@@ -136,16 +138,19 @@ async function SharedDone({
 
   return (
     <>
-      <header className="flex flex-col gap-1">
-        <span className="text-[13px] uppercase tracking-wide text-muted-foreground">
-          Verdict for
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
+          The idea
         </span>
-        <p className="text-sm text-muted-foreground">{ideaText}</p>
-      </header>
+        <p className="text-[13px] leading-[1.6] text-muted-foreground line-clamp-2">
+          {ideaText}
+        </p>
+      </div>
       <ReportView
         score={parsed.score}
         verdict={parsed.verdict}
         summary={parsed.summary}
+        confidence={parsed.confidence}
         criteria={parsed.criteria}
         solutions={parsed.solutions}
         evidence={parsed.evidence}
@@ -168,19 +173,13 @@ async function SharedInsufficient({
     .eq("analysis_id", analysisId)
     .maybeSingle();
 
+  // Same component as the owner view, minus the owner-only credit note and app
+  // navigation (showActions=false) — a public viewer doesn't own this analysis.
   return (
-    <div className="flex flex-col gap-4">
-      <span className="inline-flex w-fit items-center rounded-full border border-border px-3 py-1 text-sm font-medium text-muted-foreground">
-        Not enough evidence
-      </span>
-      <p className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-        {ideaText}
-      </p>
-      {report?.insufficient_reason && (
-        <p className="text-[15px] leading-relaxed text-foreground">
-          {report.insufficient_reason as string}
-        </p>
-      )}
-    </div>
+    <InsufficientEvidence
+      ideaText={ideaText}
+      reason={(report?.insufficient_reason as string | null) ?? null}
+      showActions={false}
+    />
   );
 }

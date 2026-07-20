@@ -53,7 +53,7 @@ const VERDICT_WORD: Record<"go" | "caution" | "stop", string> = {
 
 const VERDICT_COLOR: Record<"go" | "caution" | "stop", string> = {
   go: "#22C55E",
-  caution: "#F59E0B",
+  caution: "#FBBF24",
   stop: "#EF4444",
 };
 

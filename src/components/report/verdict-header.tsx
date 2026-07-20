@@ -2,7 +2,11 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { ScoreRing } from "./score-ring";
-import { VERDICT_DISPLAY } from "@/lib/report-schema";
+import {
+  CONFIDENCE_DISPLAY,
+  VERDICT_DISPLAY,
+  type ConfidenceLevel,
+} from "@/lib/report-schema";
 import { DURATION, EASE_OUT } from "@/lib/motion";
 
 /**
@@ -16,12 +20,15 @@ export function VerdictHeader({
   score,
   verdict,
   summary,
+  confidence = null,
 }: {
   score: number;
   verdict: "go" | "caution" | "stop";
   summary: string;
+  confidence?: ConfidenceLevel | null;
 }) {
   const v = VERDICT_DISPLAY[verdict];
+  const conf = confidence ? CONFIDENCE_DISPLAY[confidence] : null;
   const reduceMotion = useReducedMotion();
 
   return (
@@ -53,6 +60,15 @@ export function VerdictHeader({
             />
             {v.label} · {v.blurb}
           </span>
+          {conf && (
+            <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+              <span
+                aria-hidden
+                className="size-1.5 rounded-full bg-muted-foreground/70"
+              />
+              {conf.label} — {conf.blurb}
+            </span>
+          )}
           <p className="text-base leading-relaxed text-[#E5E7EB]">{summary}</p>
         </div>
       </div>

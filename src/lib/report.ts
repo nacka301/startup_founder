@@ -1,8 +1,10 @@
 import {
   evidenceItemsSchema,
+  parseConfidence,
   reportCriteriaSchema,
   reportPlanSchema,
   reportSolutionsSchema,
+  type ConfidenceLevel,
   type EvidenceItem,
   type ReportCriterion,
   type ReportPlan,
@@ -14,6 +16,8 @@ export type RenderableReport = {
   score: number;
   verdict: "go" | "caution" | "stop";
   summary: string;
+  /** Verdict confidence; null for legacy reports written before the column. */
+  confidence: ConfidenceLevel | null;
   criteria: ReportCriterion[];
   solutions: ReportSolutions;
   /** Only ever non-null for paid owners; never populated for free/shared views. */
@@ -26,6 +30,8 @@ export type RawReportRow = {
   score: number | null;
   verdict: string | null;
   summary: string | null;
+  /** Present when the caller SELECTed it; tolerant of null/legacy. */
+  confidence?: unknown;
   criteria: unknown;
   solutions: unknown;
   /** Present only when the caller intentionally SELECTed it (paid owner). */
@@ -73,6 +79,7 @@ export function parseDoneReport(
     score: row.score,
     verdict: row.verdict,
     summary: row.summary,
+    confidence: parseConfidence(row.confidence),
     criteria: criteria.data,
     solutions: solutions.data,
     plan,
