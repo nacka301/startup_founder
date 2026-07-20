@@ -10,13 +10,15 @@
 export const MIN_EVIDENCE = 8;
 
 /** Hard cap on candidate items gathered per analysis (across all queries). */
-export const MAX_CANDIDATES = 100;
+export const MAX_CANDIDATES = 120;
 
 /** How many candidates to send to Haiku per extraction call. */
 export const EXTRACT_BATCH_SIZE = 20;
 
-/** Max characters of each candidate's text passed to extraction (keeps token cost bounded). */
-export const CANDIDATE_TEXT_LIMIT = 1200;
+/** Max characters of each candidate's text passed to extraction (keeps token cost
+ * bounded). Raised alongside advanced+raw_content search so the extractor sees
+ * enough real post/comment text to judge relevance and pull an accurate quote. */
+export const CANDIDATE_TEXT_LIMIT = 2000;
 
 /** Abort a Tavily search fetch after this long, so a hung upstream can't stall the run to maxDuration. */
 export const SEARCH_FETCH_TIMEOUT_MS = 15_000;

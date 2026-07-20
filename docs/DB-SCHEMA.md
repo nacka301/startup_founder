@@ -61,6 +61,7 @@ reports (
   -- [{key:'problem_severity', score:int, reasoning:text, evidence_ids:[uuid]}, ...]
   solutions jsonb,                       -- MVP sketch, possible solutions
   plan jsonb NULL,                       -- realization plan (render-gated for free)
+  confidence text NULL,                  -- 'low' | 'moderate' | 'high'; NULL for legacy + insufficient
   insufficient_reason text NULL          -- why + what to try, when applicable
 )
 

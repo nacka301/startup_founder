@@ -5,8 +5,9 @@ import { callClaudeJson } from "@/lib/anthropic/json";
 import { sendReportReadyEmail } from "@/lib/email/send-report-ready";
 import * as queriesPrompt from "@/prompts/search-queries.v1";
 import * as extractPrompt from "@/prompts/evidence-extraction.v1";
-import * as verdictPrompt from "@/prompts/verdict.v1";
-import * as planPrompt from "@/prompts/realization-plan.v1";
+import * as verdictPrompt from "@/prompts/verdict.v2";
+import * as planPrompt from "@/prompts/realization-plan.v2";
+import { sourceLabel } from "@/components/report/source-label";
 import type { ProfileInput } from "@/lib/profile-format";
 import {
   gatherCandidates,
@@ -559,6 +560,14 @@ export const runAnalysis = task({
               mvpSketch: verdict.solutions.mvp_sketch,
               possibleSolutions: verdict.solutions.possible_solutions,
             },
+            {
+              // Ground the plan's first_customers in the communities/topics the
+              // evidence actually came from, deduped, order preserved.
+              communities: [
+                ...new Set(evidenceForPrompt.map((e) => sourceLabel(e.url))),
+              ],
+              topics: [...new Set(evidenceForPrompt.map((e) => e.topic))],
+            },
           ),
           schema: planPrompt.realizationPlanResponseSchema,
           maxTokens: 2500,
@@ -573,6 +582,7 @@ export const runAnalysis = task({
             analysis_id: analysisId,
             score: verdict.score,
             verdict: verdict.verdict,
+            confidence: verdict.confidence,
             summary: verdict.summary,
             criteria: verdict.criteria,
             solutions: verdict.solutions,

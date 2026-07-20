@@ -13,6 +13,9 @@ type TavilyResult = {
   title?: string;
   url?: string;
   content?: string;
+  /** Fuller extracted page text when include_raw_content is set; richer than the
+   * short `content` snippet, so quotes are pulled from real post/comment text. */
+  raw_content?: string;
 };
 
 type TavilyResponse = {
@@ -37,7 +40,7 @@ function sourceForUrl(url: string): Candidate["source"] {
  */
 export async function tavilySearch(
   query: string,
-  maxResults = 10,
+  maxResults = 15,
 ): Promise<Candidate[]> {
   const apiKey = process.env.SEARCH_API_KEY;
   if (!apiKey) {
@@ -54,7 +57,11 @@ export async function tavilySearch(
       },
       body: JSON.stringify({
         query,
-        search_depth: "basic",
+        // "advanced" ranks and extracts more relevant passages than "basic";
+        // include_raw_content pulls fuller post/comment text so the extractor
+        // judges relevance and quotes from real text, not a short snippet.
+        search_depth: "advanced",
+        include_raw_content: true,
         include_domains: SEARCH_INCLUDE_DOMAINS,
         max_results: maxResults,
       }),
@@ -76,11 +83,17 @@ export async function tavilySearch(
   return (data.results ?? [])
     .filter((r): r is TavilyResult & { url: string } => typeof r.url === "string")
     .filter((r) => isHttpUrl(r.url))
-    .map((r) => ({
-      source: sourceForUrl(r.url),
-      url: r.url,
-      title: (r.title ?? "").slice(0, 300),
-      content: (r.content ?? "").slice(0, CANDIDATE_TEXT_LIMIT),
-      authorHandle: null,
-    }));
+    .map((r) => {
+      // Prefer the fuller raw_content when it carries more text than the snippet.
+      const snippet = r.content ?? "";
+      const raw = r.raw_content ?? "";
+      const body = raw.length > snippet.length ? raw : snippet;
+      return {
+        source: sourceForUrl(r.url),
+        url: r.url,
+        title: (r.title ?? "").slice(0, 300),
+        content: body.slice(0, CANDIDATE_TEXT_LIMIT),
+        authorHandle: null,
+      };
+    });
 }
